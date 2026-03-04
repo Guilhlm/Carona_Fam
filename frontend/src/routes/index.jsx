@@ -16,21 +16,29 @@ import AdminRidesPage from '../pages/Admin/AdminRidesPage';
 function RequireAuth({ children }) {
   const { isAuthenticated, loading } = useAuth();
   if (loading) return <div className="p-8 text-center">Carregando...</div>;
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (!isAuthenticated) return <Navigate to="/" replace />;
   return children;
 }
 
 function RequireAdmin({ children }) {
   const { isAuthenticated, isAdmin, loading } = useAuth();
   if (loading) return <div className="p-8 text-center">Carregando...</div>;
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
-  if (!isAdmin) return <Navigate to="/" replace />;
+  if (!isAuthenticated) return <Navigate to="/" replace />;
+  if (!isAdmin) return <Navigate to="/home" replace />;
   return children;
 }
 
 export default [
   {
     path: '/',
+    element: <AuthLoginPage />,
+  },
+  {
+    path: '/register',
+    element: <AuthRegisterPage />,
+  },
+  {
+    path: '/home',
     element: <MainLayout />,
     children: [
       { index: true, element: <HomePage /> },
@@ -59,14 +67,6 @@ export default [
         ),
       },
     ],
-  },
-  {
-    path: '/login',
-    element: <AuthLoginPage />,
-  },
-  {
-    path: '/register',
-    element: <AuthRegisterPage />,
   },
   {
     path: '/admin',

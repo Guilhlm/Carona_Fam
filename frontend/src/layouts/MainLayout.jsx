@@ -7,7 +7,7 @@ export default function MainLayout() {
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate('/');
   };
 
   return (
@@ -15,20 +15,20 @@ export default function MainLayout() {
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <Link to="/" className="text-xl font-bold text-primary-600">
+            <Link to="/home" className="text-xl font-bold text-primary-600">
               Carona FAM
             </Link>
             <nav className="flex items-center gap-4">
               {isAuthenticated ? (
                 <>
                   <Link
-                    to="/rides/history"
+                    to="/home/rides/history"
                     className="text-gray-600 hover:text-gray-900"
                   >
                     Histórico
                   </Link>
                   <Link
-                    to="/profile"
+                    to="/home/profile"
                     className="text-gray-600 hover:text-gray-900"
                   >
                     Perfil
@@ -52,7 +52,7 @@ export default function MainLayout() {
               ) : (
                 <>
                   <Link
-                    to="/login"
+                    to="/"
                     className="text-gray-600 hover:text-gray-900"
                   >
                     Entrar

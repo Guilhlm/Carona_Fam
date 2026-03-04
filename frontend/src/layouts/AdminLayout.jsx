@@ -14,14 +14,14 @@ export default function AdminLayout() {
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate('/');
   };
 
   return (
     <div className="min-h-screen flex bg-gray-100">
       <aside className="w-64 bg-white shadow-sm border-r flex flex-col">
         <div className="p-4 border-b">
-          <Link to="/" className="text-lg font-bold text-primary-600">
+          <Link to="/home" className="text-lg font-bold text-primary-600">
             Carona FAM
           </Link>
           <p className="text-xs text-gray-500 mt-1">Painel Admin</p>

@@ -26,7 +26,7 @@ export default function AuthRegisterPage() {
     setLoading(true);
     try {
       await register(form);
-      navigate('/');
+      navigate('/home');
     } catch (err) {
       setError(err.response?.data?.error || 'Falha ao cadastrar');
     } finally {
@@ -74,7 +74,7 @@ export default function AuthRegisterPage() {
         </form>
         <p className="mt-4 text-center text-sm text-gray-600">
           Já tem conta?{' '}
-          <Link to="/login" className="text-primary-600 hover:underline">
+          <Link to="/" className="text-primary-600 hover:underline">
             Entrar
           </Link>
         </p>

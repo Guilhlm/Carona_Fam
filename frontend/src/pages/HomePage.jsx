@@ -16,7 +16,7 @@ export default function HomePage() {
         {!isAuthenticated ? (
           <div className="flex gap-4 justify-center">
             <Link
-              to="/login"
+              to="/"
               className="bg-primary-600 text-white px-8 py-3 rounded-lg font-medium hover:bg-primary-700"
             >
               Entrar
@@ -31,7 +31,7 @@ export default function HomePage() {
         ) : (
           <div className="flex gap-4 justify-center">
             <Link
-              to="/rides/history"
+              to="/home/rides/history"
               className="bg-primary-600 text-white px-8 py-3 rounded-lg font-medium hover:bg-primary-700"
             >
               Ver Histórico de Corridas
