@@ -34,8 +34,6 @@ export default [
     element: <MainLayout />,
     children: [
       { index: true, element: <HomePage /> },
-      { path: 'login', element: <AuthLoginPage /> },
-      { path: 'register', element: <AuthRegisterPage /> },
       {
         path: 'profile',
         element: (
@@ -61,6 +59,14 @@ export default [
         ),
       },
     ],
+  },
+  {
+    path: '/login',
+    element: <AuthLoginPage />,
+  },
+  {
+    path: '/register',
+    element: <AuthRegisterPage />,
   },
   {
     path: '/admin',
