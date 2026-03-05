@@ -1,22 +1,23 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FiMail, FiLock, FiEye, FiEyeOff } from 'react-icons/fi';
+import { FiMail, FiLock, FiEye, FiEyeOff, FiUser, FiInfo } from 'react-icons/fi';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import AuthInput from '../components/ui/AuthInput';
 import Background from '../assets/images/Background.png';
 import Logo from '../assets/images/Logo.png';
+import { resetPassword } from '../services/authService';
 
-export default function AuthRegisterPage() {
+export default function AuthForgotPasswordPage() {
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [ra, setRa] = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { register, isAuthenticated } = useAuth();
+
+  const { isAuthenticated } = useAuth();
+  const { showToast } = useToast();
   const navigate = useNavigate();
-  const { showToast, hideToast } = useToast();
 
   useEffect(() => {
     if (isAuthenticated) navigate('/home', { replace: true });
@@ -25,21 +26,28 @@ export default function AuthRegisterPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (password !== confirmPassword) {
-      showToast('As senhas não coincidem', 'error');
+    if (!email || !ra || !newPassword) {
+      showToast('Preencha todos os campos para redefinir sua senha', 'error');
       return;
     }
 
     setLoading(true);
     try {
-      await register({
+      const response = await resetPassword({
         email,
-        password,
+        ra,
+        newPassword,
       });
-      hideToast();
-      navigate('/home');
+      const message =
+        response?.message || 'Senha redefinida com sucesso! Você já pode fazer login.';
+      showToast(message, 'success');
+      setEmail('');
+      setRa('');
+      setNewPassword('');
     } catch (err) {
-      const message = err.response?.data?.error || 'Falha ao cadastrar';
+      const message =
+        err.response?.data?.error ||
+        'Não foi possível redefinir sua senha. Verifique os dados informados.';
       showToast(message, 'error');
     } finally {
       setLoading(false);
@@ -49,11 +57,7 @@ export default function AuthRegisterPage() {
   return (
     <div className="min-h-screen max-h-screen flex items-center justify-center px-4 py-8 text-text-main relative overflow-x-hidden overflow-y-auto">
       <div className="absolute inset-0 -z-10 overflow-hidden">
-        <img
-          src={Background}
-          alt=""
-          className="w-full h-full object-cover blur-lg"
-        />
+        <img src={Background} alt="" className="w-full h-full object-cover blur-lg" />
         <div
           className="absolute inset-0"
           style={{
@@ -69,12 +73,9 @@ export default function AuthRegisterPage() {
           <p className="text-sm font-medium text-text-main">Carona FAM</p>
         </Link>
 
-        <form
-          onSubmit={handleSubmit}
-          className="space-y-5 px-3 py-6"
-        >
+        <form onSubmit={handleSubmit} className="space-y-5 px-3 py-6">
           <div className="space-y-2">
-            <p className="text-xs text-brand">* Digite seu email (exemplo@gmail.com)</p>
+            <p className="text-xs text-brand">* Digite o email cadastrado na plataforma</p>
 
             <AuthInput
               type="email"
@@ -86,13 +87,25 @@ export default function AuthRegisterPage() {
           </div>
 
           <div className="space-y-2">
-            <p className="text-xs text-brand">* Crie uma senha segura com caracteres especiais</p>
+            <p className="text-xs text-brand">* Informe seu RA (o mesmo utilizado no cadastro)</p>
+
+            <AuthInput
+              type="text"
+              placeholder="RA"
+              value={ra}
+              onChange={(e) => setRa(e.target.value)}
+              icon={<FiUser className="h-5 w-5" />}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-xs text-brand">* Crie uma nova senha segura com caracteres especiais</p>
 
             <AuthInput
               type={showPassword ? 'text' : 'password'}
-              placeholder="Senha"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Nova senha"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
               icon={<FiLock className="h-5 w-5" />}
               rightElement={
                 <button
@@ -110,44 +123,24 @@ export default function AuthRegisterPage() {
             />
           </div>
 
-          <div className="space-y-2">
-            <p className="text-xs text-brand">* Confirme sua senha</p>
+          <div className="flex flex-col items-center gap-4 pt-6">
+            
 
-            <AuthInput
-              type={showConfirmPassword ? 'text' : 'password'}
-              placeholder="Confirmar senha"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              icon={<FiLock className="h-5 w-5" />}
-              rightElement={
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword((prev) => !prev)}
-                  className="text-text-muted/60 hover:text-text-muted"
-                >
-                  {showConfirmPassword ? (
-                    <FiEyeOff className="h-5 w-5" />
-                  ) : (
-                    <FiEye className="h-5 w-5" />
-                  )}
-                </button>
-              }
-            />
-          </div>
-
-          <div className="flex flex-col items-center gap-5 pt-8">
             <button
               type="submit"
               disabled={loading}
               className="w-full h-[70px] rounded-[10px] bg-brand text-text-main hover:text-text-main/60 text-sm font-medium flex items-center justify-center hover:bg-brand/60 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              <span> {loading ? 'Criando conta...' : 'Criar sua conta agora'}</span>
+              <span>{loading ? 'Redefinindo senha...' : 'Redefinir senha'}</span>
             </button>
 
             <button
               type="button"
               onClick={() => navigate('/')}
-              className="text-xs text-brand hover:text-text-main/60">Já tem conta? Entrar</button>
+              className="text-xs text-brand hover:text-text-main/60"
+            >
+              Voltar para o login
+            </button>
           </div>
         </form>
       </div>

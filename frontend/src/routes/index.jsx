@@ -5,6 +5,7 @@ import AdminLayout from '../layouts/AdminLayout';
 import HomePage from '../pages/HomePage';
 import AuthLoginPage from '../pages/AuthLoginPage';
 import AuthRegisterPage from '../pages/AuthRegisterPage';
+import AuthForgotPasswordPage from '../pages/AuthForgotPasswordPage';
 import ProfilePage from '../pages/ProfilePage';
 import RideHistoryPage from '../pages/RideHistoryPage';
 import RideInProgressPage from '../pages/RideInProgressPage';
@@ -36,6 +37,10 @@ export default [
   {
     path: '/register',
     element: <AuthRegisterPage />,
+  },
+  {
+    path: '/forgot-password',
+    element: <AuthForgotPasswordPage />,
   },
   {
     path: '/home',

@@ -21,9 +21,15 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/';
+      const requestUrl = error.config?.url || '';
+      const isAuthLoginRequest = requestUrl.includes('/auth/login');
+      const isAuthRegisterRequest = requestUrl.includes('/auth/register');
+
+      if (!isAuthLoginRequest && !isAuthRegisterRequest) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/';
+      }
     }
     return Promise.reject(error);
   }

@@ -20,7 +20,22 @@ async function login(req, res, next) {
   }
 }
 
+async function resetPassword(req, res, next) {
+  try {
+    const { email, ra, newPassword } = req.body;
+    const result = await AuthService.resetPasswordWithEmailAndRa(
+      email,
+      ra,
+      newPassword
+    );
+    return success(res, result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
+  resetPassword,
 };

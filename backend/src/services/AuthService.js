@@ -94,7 +94,35 @@ async function login(email, password) {
   return { user: userData, token };
 }
 
+async function resetPasswordWithEmailAndRa(email, ra, newPassword) {
+  const user = await prisma.user.findUnique({
+    where: { email },
+  });
+
+  if (!user) {
+    const err = new Error('Usuário não encontrado');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  if (!user.ra || user.ra !== ra) {
+    const err = new Error('Email e RA não conferem');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const passwordHash = await hashPassword(newPassword);
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { passwordHash },
+  });
+
+  return { message: 'Senha redefinida com sucesso' };
+}
+
 module.exports = {
   register,
   login,
+  resetPasswordWithEmailAndRa,
 };
