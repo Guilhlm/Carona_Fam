@@ -5,7 +5,7 @@ Aplicação fullstack inspirada na Uber para compartilhamento de caronas. Permit
 ## Stack
 
 - **Frontend**: React (JSX), Vite, TailwindCSS, React Router
-- **Backend**: Node.js, Express, Prisma ORM
+- **Backend**: Node.js, Express, Prisma ORM, Axios
 - **Banco de dados**: PostgreSQL
 - **Infraestrutura**: Docker, Docker Compose
 
@@ -123,6 +123,7 @@ PORT=4000
 NODE_ENV=development
 JWT_SECRET=changeme-super-secret-use-strong-key-in-production
 BCRYPT_SALT_ROUNDS=10
+ORS_API_KEY=
 ```
 
 > Ajuste `postgres:postgres` se o seu usuário/senha do PostgreSQL forem diferentes.
@@ -191,6 +192,7 @@ O frontend está configurado para enviar todas as requisições `/api/...` para 
 | GET | `/api/admin/drivers` | Lista motoristas (admin) |
 | GET | `/api/admin/rides` | Lista corridas (admin) |
 | PATCH | `/api/admin/users/:id/block` | Bloquear/desbloquear (admin) |
+| POST | `/api/mapa/rota` | Calcula distância, tempo e gera link do GPS (OpenRouteService) |
 
 ## Segurança
 
