@@ -34,8 +34,19 @@ async function resetPassword(req, res, next) {
   }
 }
 
+async function changePassword(req, res, next) {
+  try {
+    const { newPassword } = req.body;
+    const result = await AuthService.changePassword(req.user.id, newPassword);
+    return success(res, result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   register,
   login,
   resetPassword,
+  changePassword,
 };

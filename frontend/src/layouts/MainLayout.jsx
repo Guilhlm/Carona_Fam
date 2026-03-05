@@ -72,11 +72,6 @@ export default function MainLayout() {
       <main className="flex-1">
         <Outlet />
       </main>
-      <footer className="bg-gray-100 border-t py-4">
-        <div className="max-w-7xl mx-auto px-4 text-center text-gray-500 text-sm">
-          Carona FAM &copy; {new Date().getFullYear()}
-        </div>
-      </footer>
     </div>
   );
 }

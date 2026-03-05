@@ -18,6 +18,7 @@ module.exports = {
         },
         brand: '#5F5FAA', // cor principal da marca (links, botões de ação)
         'surface-input': '#242424', // fundo dos inputs/cartões escuros
+        'surface-form': '#5C5C5C', // fundo específico dos inputs do formulário de perfil
         'border-muted': '#333232', // bordas e ícones mais escuros
         'text-main': '#D4D4D4', // texto principal em fundo escuro
         'text-muted': '#333232', // texto/ícones em contraste mais baixo
