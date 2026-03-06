@@ -5,7 +5,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import AuthInput from '../components/ui/AuthInput';
 import LoginButton from '../components/ui/LoginButton';
-import Background from '../assets/images/Background.png';
 import Logo from '../assets/images/Logo.png';
 
 export default function AuthLoginPage() {
@@ -38,19 +37,6 @@ export default function AuthLoginPage() {
 
   return (
     <div className="min-h-screen max-h-screen flex items-center justify-center px-4 py-8 text-text-main relative overflow-x-hidden overflow-y-auto">
-      <div className="absolute inset-0 -z-10 overflow-hidden">
-        <img
-          src={Background}
-          alt=""
-          className="w-full h-full object-cover blur-lg"
-        />
-        <div className="absolute inset-0"
-          style={{
-            background: 'linear-gradient(125deg, rgba(9,9,10,0.95), rgba(14,14,25,0.95))',
-          }}
-        />
-      </div>
-
       <div className="w-full max-w-[390px]">
         <Link to="/" className="flex flex-col items-center mb-10">
           <img src={Logo} alt="Carona FAM" className="w-45 h-45 transform scale-[0.92]" />

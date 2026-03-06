@@ -1,13 +1,14 @@
 import { useNavigate } from 'react-router-dom';
-import Background from '../assets/images/Background.png';
 import AuthInput from '../components/ui/AuthInput';
 import { useAuth } from '../contexts/AuthContext';
 import { useProfile, PROFILE_INPUT_FIELDS } from '../hooks/useProfile';
 import { useChangePassword } from '../hooks/useChangePassword';
+import { useVehicleProfile } from '../hooks/useVehicleProfile';
 import ProfileHeader from '../components/profile/ProfileHeader';
 import ProfileFieldRow from '../components/profile/ProfileFieldRow';
 import AccountTypeSection from '../components/profile/AccountTypeSection';
 import PasswordSection from '../components/profile/PasswordSection';
+import DriverVehicleSection from '../components/profile/DriverVehicleSection';
 
 export default function ProfilePage() {
   const { logout } = useAuth();
@@ -34,6 +35,21 @@ export default function ProfilePage() {
   } = useProfile();
 
   const {
+    vehicleForm,
+    vehicleLoading,
+    vehicleSaving,
+    hasVehicleChanges,
+    handleVehicleChange,
+    handleVehicleNumericChange,
+    vehicleUploadingPhoto,
+    vehiclePhotoName,
+    vehicleFileInputRef,
+    handleVehiclePhotoClick,
+    handleVehiclePhotoChange,
+    handleVehicleSubmit,
+  } = useVehicleProfile();
+
+  const {
     newPassword,
     confirmPassword,
     loading: changingPassword,
@@ -49,17 +65,6 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen flex justify-center px-4 py-8 text-text-main relative overflow-x-hidden">
-      <div className="absolute inset-0 -z-10 overflow-hidden">
-        <img src={Background} alt="" className="w-full h-full object-cover blur-lg" />
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              'linear-gradient(125deg, rgba(9,9,10,0.9), rgba(14,14,25,0.9))',
-          }}
-        />
-      </div>
-
       <div className="w-full max-w-4xl">
         <div className="rounded-[10px] border-2 border-border-muted bg-surface-input/20 backdrop-blur-2xl px-6 py-7 md:px-10 md:py-9 shadow-2xl text-sm text-text-main relative space-y-8">
           <ProfileHeader
@@ -116,7 +121,7 @@ export default function ProfilePage() {
               <button
                 type="submit"
                 disabled={saving || loading || !hasChanges}
-                className="w-full md:w-1/2 h-[54px] rounded-[10px] bg-brand text-text-main hover:text-text-main/80 text-sm font-medium flex items-center justify-center hover:bg-brand/70 disabled:bg-brand/20 disabled:text-text-main/60 disabled:hover:bg-brand/20 disabled:cursor-not-allowed transition-colors"
+                className="w-full h-[54px] rounded-[10px] bg-brand text-text-main hover:text-text-main/80 text-sm font-medium flex items-center justify-center hover:bg-brand/70 disabled:bg-brand/20 disabled:text-text-main/60 disabled:hover:bg-brand/20 disabled:cursor-not-allowed transition-colors"
               >
                 <span>{saving ? 'Salvando...' : 'Atualizar Cadastro'}</span>
               </button>
@@ -128,6 +133,23 @@ export default function ProfilePage() {
             updatingRole={updatingRole}
             onChangeRole={handleRoleChange}
           />
+
+          {role === 'DRIVER' && (
+            <DriverVehicleSection
+              vehicleForm={vehicleForm}
+              vehicleLoading={vehicleLoading}
+              vehicleSaving={vehicleSaving}
+              hasVehicleChanges={hasVehicleChanges}
+              vehicleUploadingPhoto={vehicleUploadingPhoto}
+              vehiclePhotoName={vehiclePhotoName}
+              vehicleFileInputRef={vehicleFileInputRef}
+              handleVehicleChange={handleVehicleChange}
+              handleVehicleNumericChange={handleVehicleNumericChange}
+              handleVehiclePhotoClick={handleVehiclePhotoClick}
+              handleVehiclePhotoChange={handleVehiclePhotoChange}
+              handleVehicleSubmit={handleVehicleSubmit}
+            />
+          )}
 
           <PasswordSection
             displayEmail={displayEmail}

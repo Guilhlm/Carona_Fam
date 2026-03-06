@@ -143,6 +143,50 @@ export function useProfile() {
   const handleSubmit = useCallback(
     async (e) => {
       e.preventDefault();
+      const trimmedName = form.name.trim();
+      if (!trimmedName) {
+        showToast('Nome é obrigatório.', 'error');
+        return;
+      }
+
+      if (form.ra && !/^\d+$/.test(form.ra)) {
+        showToast('RA deve conter apenas números.', 'error');
+        return;
+      }
+
+      if (!form.age) {
+        showToast('Idade é obrigatória.', 'error');
+        return;
+      }
+      const ageNumber = Number(form.age);
+      if (
+        !Number.isInteger(ageNumber) ||
+        ageNumber < 16 ||
+        ageNumber > 120
+      ) {
+        showToast('Idade deve ser um número entre 16 e 120 anos.', 'error');
+        return;
+      }
+
+      if (!form.phone) {
+        showToast('Telefone é obrigatório.', 'error');
+        return;
+      }
+      const numericPhone = form.phone.replace(/\D/g, '');
+      if (numericPhone.length < 8 || numericPhone.length > 15) {
+        showToast('Telefone deve conter entre 8 e 15 dígitos numéricos.', 'error');
+        return;
+      }
+
+      if (!form.cep) {
+        showToast('CEP é obrigatório.', 'error');
+        return;
+      }
+      if (!/^\d{8}$/.test(form.cep)) {
+        showToast('CEP deve conter exatamente 8 dígitos numéricos.', 'error');
+        return;
+      }
+
       setSaving(true);
       try {
         const payload = {
@@ -245,7 +289,7 @@ export const PROFILE_INPUT_FIELDS = [
     type: 'text',
     placeholder: 'RA do estudante',
     numeric: true,
-    extraProps: { inputMode: 'numeric' },
+    extraProps: { inputMode: 'numeric', maxLength: 20 },
   },
   {
     key: 'course',
@@ -258,18 +302,22 @@ export const PROFILE_INPUT_FIELDS = [
     label: 'Idade:',
     type: 'number',
     placeholder: 'Sua idade',
-    extraProps: { min: 0 },
+    extraProps: { min: 16, max: 120 },
   },
   {
     key: 'phone',
     label: 'Telefone:',
     type: 'tel',
     placeholder: 'Telefone para contato',
+    numeric: true,
+    extraProps: { inputMode: 'tel', maxLength: 15 },
   },
   {
     key: 'cep',
     label: 'CEP:',
     type: 'text',
     placeholder: 'CEP da sua região',
+    numeric: true,
+    extraProps: { inputMode: 'numeric', maxLength: 8 },
   },
 ];
