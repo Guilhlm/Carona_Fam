@@ -4,7 +4,7 @@ import { useAdminFetch } from './useAdminFetch';
 import { useAdminFilters } from './useAdminFilters';
 import * as adminService from '../../services/adminService';
 
-const INITIAL_FILTERS = { search: '', filterOrder: '', filterStatus: '' };
+const INITIAL_FILTERS = { search: '', filterOrder: 'brand_asc', filterStatus: '' };
 const DEFAULT_LIMIT = 2;
 
 export function useAdminVehicles() {

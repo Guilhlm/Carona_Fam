@@ -24,6 +24,8 @@ export default function ProfilePage() {
     fileInputRef,
     handleChange,
     handleNumericChange,
+    handlePhoneChange,
+    handleCepChange,
     handleAvatarClick,
     handleAvatarChange,
     handleSubmit,
@@ -95,14 +97,20 @@ export default function ProfilePage() {
             </ProfileFieldRow>
 
             {PROFILE_INPUT_FIELDS.map(
-              ({ key, label, type, placeholder, numeric, extraProps }) => (
+              ({ key, label, type, placeholder, numeric, phoneFormat, cepFormat, extraProps }) => (
                 <ProfileFieldRow key={key} label={label}>
                   <AuthInput
                     type={type}
                     placeholder={placeholder}
                     value={form[key]}
                     onChange={
-                      numeric ? handleNumericChange(key) : handleChange(key)
+                      phoneFormat
+                        ? handlePhoneChange
+                        : cepFormat
+                          ? handleCepChange
+                          : numeric
+                            ? handleNumericChange(key)
+                            : handleChange(key)
                     }
                     {...extraProps}
                   />

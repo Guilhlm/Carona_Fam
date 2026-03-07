@@ -47,7 +47,7 @@ export const RIDES_SELECTS = [
       { value: 'driver_asc', label: 'Motorista' },
       { value: 'passenger_asc', label: 'Usuário' },
     ],
-    placeholder: 'Ordenar por',
+    placeholder: '',
     ariaLabel: 'Ordenar corridas',
   },
 ];
@@ -56,11 +56,10 @@ export const DRIVERS_SELECTS = [
   {
     key: 'filterOrder',
     options: [
-      { value: '', label: 'Ordenar por' },
       { value: 'name_asc', label: 'A-Z' },
       { value: 'name_desc', label: 'Z-A' },
     ],
-    placeholder: 'Ordenar por',
+    placeholder: '',
     ariaLabel: 'Ordenar motoristas',
   },
   {
@@ -79,11 +78,10 @@ export const VEHICLES_SELECTS = [
   {
     key: 'filterOrder',
     options: [
-      { value: '', label: 'Ordenar por' },
       { value: 'brand_asc', label: 'A-Z' },
       { value: 'brand_desc', label: 'Z-A' },
     ],
-    placeholder: 'Ordenar por',
+    placeholder: '',
     ariaLabel: 'Ordenar veículos',
   },
   {

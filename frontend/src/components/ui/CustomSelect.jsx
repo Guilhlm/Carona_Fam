@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 const triggerBase =
-  'flex items-center justify-between w-full h-full rounded-[10px] border border-border-muted bg-surface-input px-3 text-left text-text-main focus:outline-none focus:ring-2 focus:ring-brand/50 transition-colors';
+  'flex items-center justify-between w-full h-full rounded-[10px] border border-border-muted bg-surface-input/20 backdrop-blur-2xl px-3 text-left text-text-main focus:outline-none focus:ring-2 focus:ring-brand/50 transition-colors';
 const triggerSizeSm = 'text-xs md:text-sm min-h-[40px]';
 const triggerSizeMd = 'text-sm min-h-[55px]';
 const dropdownBase =

@@ -27,19 +27,39 @@ const emptyForm = {
   role: 'USER',
 };
 
-const normalizeUserToForm = (user, fallbackPhoto = '') => ({
-  name: user?.name || '',
-  email: user?.email || '',
-  ra: user?.ra || '',
-  course: user?.course || '',
-  gender:
-    user?.gender === 'MASCULINO' || user?.gender === 'FEMININO' ? user.gender : '',
-  age: user?.age ? String(user.age) : '',
-  phone: user?.phone || '',
-  cep: user?.cep || '',
-  photoUrl: user?.photoUrl || fallbackPhoto || '',
-  role: user?.role || 'USER',
-});
+function formatPhoneForDisplay(digits) {
+  const d = String(digits || '').replace(/\D/g, '');
+  if (d.length <= 2) return d ? `(${d}` : '';
+  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7, 11)}`;
+}
+
+function formatCepForDisplay(digits) {
+  const d = String(digits || '').replace(/\D/g, '').slice(0, 8);
+  if (d.length <= 5) return d;
+  return `${d.slice(0, 5)}-${d.slice(5)}`;
+}
+
+const normalizeUserToForm = (user, fallbackPhoto = '') => {
+  const rawPhone = user?.phone || '';
+  const phoneDigits = String(rawPhone).replace(/\D/g, '');
+  const rawCep = user?.cep || '';
+  const cepDigits = String(rawCep).replace(/\D/g, '');
+  return {
+    name: user?.name || '',
+    email: user?.email || '',
+    ra: user?.ra || '',
+    course: user?.course || '',
+    gender:
+      user?.gender === 'MASCULINO' || user?.gender === 'FEMININO' ? user.gender : '',
+    age: user?.age ? String(user.age) : '',
+    phone: formatPhoneForDisplay(phoneDigits),
+    cep: formatCepForDisplay(cepDigits),
+    photoUrl: user?.photoUrl || fallbackPhoto || '',
+    role: user?.role || 'USER',
+  };
+};
 
 export function useProfile() {
   const { user, refreshUser } = useAuth();
@@ -94,6 +114,16 @@ export function useProfile() {
     },
     []
   );
+
+  const handlePhoneChange = useCallback((e) => {
+    const digits = e.target.value.replace(/\D/g, '').slice(0, 11);
+    setForm((prev) => ({ ...prev, phone: formatPhoneForDisplay(digits) }));
+  }, []);
+
+  const handleCepChange = useCallback((e) => {
+    const digits = e.target.value.replace(/\D/g, '').slice(0, 8);
+    setForm((prev) => ({ ...prev, cep: formatCepForDisplay(digits) }));
+  }, []);
 
   const handleAvatarClick = useCallback(() => {
     if (fileInputRef.current) {
@@ -182,7 +212,8 @@ export function useProfile() {
         showToast('CEP é obrigatório.', 'error');
         return;
       }
-      if (!/^\d{8}$/.test(form.cep)) {
+      const numericCep = form.cep.replace(/\D/g, '');
+      if (!/^\d{8}$/.test(numericCep)) {
         showToast('CEP deve conter exatamente 8 dígitos numéricos.', 'error');
         return;
       }
@@ -196,8 +227,8 @@ export function useProfile() {
           course: form.course,
           gender: form.gender,
           age: form.age,
-          phone: form.phone,
-          cep: form.cep,
+          phone: numericPhone,
+          cep: numericCep,
         };
 
         const updated = await updateMe(payload);
@@ -265,6 +296,8 @@ export function useProfile() {
     fileInputRef,
     handleChange,
     handleNumericChange,
+    handlePhoneChange,
+    handleCepChange,
     handleAvatarClick,
     handleAvatarChange,
     handleRoleChange,
@@ -308,16 +341,16 @@ export const PROFILE_INPUT_FIELDS = [
     key: 'phone',
     label: 'Telefone:',
     type: 'tel',
-    placeholder: 'Telefone para contato',
-    numeric: true,
-    extraProps: { inputMode: 'tel', maxLength: 15 },
+    placeholder: '(11) 00000-0000',
+    phoneFormat: true,
+    extraProps: { inputMode: 'tel', maxLength: 16 },
   },
   {
     key: 'cep',
     label: 'CEP:',
     type: 'text',
-    placeholder: 'CEP da sua região',
-    numeric: true,
-    extraProps: { inputMode: 'numeric', maxLength: 8 },
+    placeholder: '00000-000',
+    cepFormat: true,
+    extraProps: { inputMode: 'numeric', maxLength: 9 },
   },
 ];

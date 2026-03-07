@@ -5,7 +5,7 @@ import { useAdminFilters } from './useAdminFilters';
 import { useExpandableList } from './useExpandableList';
 import * as adminService from '../../services/adminService';
 
-const INITIAL_FILTERS = { search: '', filterStatus: '', filterOrder: '' };
+const INITIAL_FILTERS = { search: '', filterStatus: '', filterOrder: 'date_desc' };
 const RIDES_PER_PAGE = 10;
 
 function normalizeRidesResponse(res) {
