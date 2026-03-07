@@ -18,6 +18,23 @@ async function getMyVehicle(req, res, next) {
   }
 }
 
+async function getMyVehicles(req, res, next) {
+  try {
+    const { id, role } = req.user || {};
+
+    if (role !== 'DRIVER') {
+      const err = new Error('Apenas motoristas podem gerenciar veículos.');
+      err.statusCode = 403;
+      throw err;
+    }
+
+    const vehicles = await VehicleService.getMyVehicles(id);
+    return success(res, vehicles);
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function upsertMyVehicle(req, res, next) {
   try {
     const { id, role } = req.user || {};
@@ -35,7 +52,26 @@ async function upsertMyVehicle(req, res, next) {
   }
 }
 
+async function createNewVehicle(req, res, next) {
+  try {
+    const { id, role } = req.user || {};
+
+    if (role !== 'DRIVER') {
+      const err = new Error('Apenas motoristas podem gerenciar veículos.');
+      err.statusCode = 403;
+      throw err;
+    }
+
+    const vehicle = await VehicleService.createNewVehicle(id, req.body || {});
+    return success(res, vehicle);
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getMyVehicle,
+  getMyVehicles,
   upsertMyVehicle,
+  createNewVehicle,
 };

@@ -50,7 +50,15 @@ export default function CustomSelect({
         className={`${triggerBase} ${triggerSize} ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
         onClick={() => !disabled && setOpen((prev) => !prev)}
       >
-        <span className={selectedOption ? 'text-text-main' : 'text-text-muted'}>
+        <span
+          className={
+            selectedOption?.isDisabled
+              ? 'text-red-500'
+              : selectedOption
+                ? 'text-text-main'
+                : 'text-text-muted'
+          }
+        >
           {displayLabel}
         </span>
         <svg
@@ -81,7 +89,7 @@ export default function CustomSelect({
                 setOpen(false);
               }}
             >
-              {opt.label}
+              <span className={opt.isDisabled ? 'text-red-500' : ''}>{opt.label}</span>
             </li>
           ))}
         </ul>

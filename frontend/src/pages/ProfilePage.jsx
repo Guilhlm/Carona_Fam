@@ -45,9 +45,15 @@ export default function ProfilePage() {
     vehicleUploadingPhoto,
     vehiclePhotoName,
     vehicleFileInputRef,
+    isAddingNewVehicle,
+    vehiclesList,
+    selectedVehicleId,
+    vehicleSelectOptions,
     handleVehiclePhotoClick,
     handleVehiclePhotoChange,
     handleVehicleSubmit,
+    handleNewVehicleClick,
+    handleVehicleSelect,
   } = useVehicleProfile();
 
   const {
@@ -147,11 +153,17 @@ export default function ProfilePage() {
               vehicleUploadingPhoto={vehicleUploadingPhoto}
               vehiclePhotoName={vehiclePhotoName}
               vehicleFileInputRef={vehicleFileInputRef}
+              isAddingNewVehicle={isAddingNewVehicle}
+              vehiclesList={vehiclesList}
+              selectedVehicleId={selectedVehicleId}
+              vehicleSelectOptions={vehicleSelectOptions}
               handleVehicleChange={handleVehicleChange}
               handleVehicleNumericChange={handleVehicleNumericChange}
               handleVehiclePhotoClick={handleVehiclePhotoClick}
               handleVehiclePhotoChange={handleVehiclePhotoChange}
               handleVehicleSubmit={handleVehicleSubmit}
+              handleNewVehicleClick={handleNewVehicleClick}
+              handleVehicleSelect={handleVehicleSelect}
             />
           )}
 

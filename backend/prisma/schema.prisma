@@ -62,7 +62,7 @@ model Vehicle {
   driverId      String
   brand         String?
   model         String?
-  plate         String   @unique
+  plate         String?  @unique
   year          Int?
   capacityTotal Int
   photoUrl      String?

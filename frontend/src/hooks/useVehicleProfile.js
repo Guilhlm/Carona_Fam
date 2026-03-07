@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import { getMyVehicle, saveMyVehicle } from '../services/vehicleService';
+import { getMyVehicles, saveMyVehicle, createNewVehicle } from '../services/vehicleService';
 
 const emptyVehicleForm = {
   id: '',
@@ -11,6 +11,8 @@ const emptyVehicleForm = {
   year: '',
   capacityTotal: '',
   photoUrl: '',
+  isDisabled: false,
+  disabledReason: '',
 };
 
 const VEHICLE_FIELDS = [
@@ -30,6 +32,8 @@ const normalizeVehicleToForm = (vehicle) => ({
   year: vehicle?.year ? String(vehicle.year) : '',
   capacityTotal: vehicle?.capacityTotal ? String(vehicle.capacityTotal) : '',
   photoUrl: vehicle?.photoUrl || '',
+  isDisabled: !!vehicle?.isDisabled,
+  disabledReason: vehicle?.disabledReason || '',
 });
 
 export function useVehicleProfile() {
@@ -38,16 +42,20 @@ export function useVehicleProfile() {
 
   const [vehicleForm, setVehicleForm] = useState(emptyVehicleForm);
   const [initialVehicleForm, setInitialVehicleForm] = useState(null);
+  const [vehiclesList, setVehiclesList] = useState([]);
+  const [selectedVehicleId, setSelectedVehicleId] = useState('');
   const [vehicleLoading, setVehicleLoading] = useState(true);
   const [vehicleSaving, setVehicleSaving] = useState(false);
-   const [vehicleUploadingPhoto, setVehicleUploadingPhoto] = useState(false);
-   const [vehiclePhotoName, setVehiclePhotoName] = useState('');
-   const vehicleFileInputRef = useRef(null);
+  const [vehicleUploadingPhoto, setVehicleUploadingPhoto] = useState(false);
+  const [vehiclePhotoName, setVehiclePhotoName] = useState('');
+  const vehicleFileInputRef = useRef(null);
+  const [isAddingNewVehicle, setIsAddingNewVehicle] = useState(false);
+  const [blockedVehiclePlate, setBlockedVehiclePlate] = useState('');
 
   useEffect(() => {
     let isMounted = true;
 
-    async function loadVehicle() {
+    async function loadVehicles() {
       setVehicleLoading(true);
 
       try {
@@ -55,18 +63,27 @@ export function useVehicleProfile() {
           if (isMounted) {
             setVehicleForm(emptyVehicleForm);
             setInitialVehicleForm(null);
+            setVehiclesList([]);
+            setSelectedVehicleId('');
           }
           return;
         }
 
-        const vehicle = await getMyVehicle();
+        const vehicles = await getMyVehicles();
         if (!isMounted) return;
 
-        if (vehicle) {
-          const normalized = normalizeVehicleToForm(vehicle);
+        if (vehicles && vehicles.length > 0) {
+          setVehiclesList(vehicles);
+          const primary = vehicles[0];
+          setSelectedVehicleId(primary.id);
+          const normalized = normalizeVehicleToForm(primary);
           setVehicleForm(normalized);
           setInitialVehicleForm(normalized);
+          setIsAddingNewVehicle(false);
+          setBlockedVehiclePlate('');
         } else {
+          setVehiclesList([]);
+          setSelectedVehicleId('');
           setVehicleForm(emptyVehicleForm);
           setInitialVehicleForm(emptyVehicleForm);
         }
@@ -79,12 +96,25 @@ export function useVehicleProfile() {
       }
     }
 
-    loadVehicle();
+    loadVehicles();
 
     return () => {
       isMounted = false;
     };
   }, [showToast, user]);
+
+  const handleVehicleSelect = useCallback((vehicleId) => {
+    setSelectedVehicleId(vehicleId);
+    const vehicle = vehiclesList.find((v) => v.id === vehicleId);
+    if (vehicle) {
+      const normalized = normalizeVehicleToForm(vehicle);
+      setVehicleForm(normalized);
+      setInitialVehicleForm(normalized);
+      setIsAddingNewVehicle(false);
+      setBlockedVehiclePlate('');
+      setVehiclePhotoName('');
+    }
+  }, [vehiclesList]);
 
   const handleVehicleChange = useCallback(
     (field) => (e) => {
@@ -101,6 +131,14 @@ export function useVehicleProfile() {
     },
     []
   );
+
+  const handleNewVehicleClick = useCallback(() => {
+    setBlockedVehiclePlate(vehicleForm.plate?.trim().toUpperCase() || '');
+    setIsAddingNewVehicle(true);
+    setVehicleForm({ ...emptyVehicleForm });
+    setInitialVehicleForm({ ...emptyVehicleForm });
+    setVehiclePhotoName('');
+  }, [vehicleForm.plate]);
 
   const handleVehiclePhotoClick = useCallback(() => {
     if (vehicleFileInputRef.current) {
@@ -121,11 +159,29 @@ export function useVehicleProfile() {
 
         setVehicleUploadingPhoto(true);
         try {
-          const saved = await saveMyVehicle({ photoUrl: base64 });
-          const normalized = normalizeVehicleToForm(saved);
-          setVehicleForm(normalized);
-          setInitialVehicleForm(normalized);
+          const payload = { photoUrl: base64 };
+          if (vehicleForm.id) payload.id = vehicleForm.id;
+          const saved = await saveMyVehicle(payload);
+          const fromServer = normalizeVehicleToForm(saved);
+          setVehicleForm((prev) => ({
+            ...prev,
+            id: fromServer.id || prev.id,
+            photoUrl: fromServer.photoUrl,
+            brand: fromServer.brand || prev.brand,
+            model: fromServer.model || prev.model,
+            plate: fromServer.plate || prev.plate,
+            year: fromServer.year || prev.year,
+            capacityTotal: fromServer.capacityTotal || prev.capacityTotal,
+            isDisabled: fromServer.isDisabled,
+            disabledReason: fromServer.disabledReason,
+          }));
+          setInitialVehicleForm(fromServer);
           setVehiclePhotoName(file.name);
+          setVehiclesList((prev) =>
+            prev.map((v) =>
+              v.id === fromServer.id ? { ...v, photoUrl: fromServer.photoUrl } : v
+            )
+          );
           hideToast();
           showToast('Foto do veículo atualizada com sucesso.', 'success');
         } catch (err) {
@@ -185,6 +241,14 @@ export function useVehicleProfile() {
         return;
       }
 
+      if (isAddingNewVehicle && blockedVehiclePlate && plate === blockedVehiclePlate) {
+        showToast(
+          'Não é possível cadastrar um veículo com a mesma placa do carro bloqueado.',
+          'error'
+        );
+        return;
+      }
+
       if (!year) {
         showToast('Ano do veículo é obrigatório.', 'error');
         return;
@@ -230,14 +294,31 @@ export function useVehicleProfile() {
           capacityTotal: capacityNumber,
           photoUrl: photoUrl || null,
         };
+        if (!isAddingNewVehicle && vehicleForm.id) {
+          payload.id = vehicleForm.id;
+        }
 
-        const saved = await saveMyVehicle(payload);
+        const saved = isAddingNewVehicle
+          ? await createNewVehicle(payload)
+          : await saveMyVehicle(payload);
         const normalized = normalizeVehicleToForm(saved);
 
         setVehicleForm(normalized);
         setInitialVehicleForm(normalized);
+        setIsAddingNewVehicle(false);
+        setBlockedVehiclePlate('');
+        setSelectedVehicleId(normalized.id);
+        if (isAddingNewVehicle) {
+          const updated = await getMyVehicles();
+          setVehiclesList(updated || []);
+        }
         hideToast();
-        showToast('Dados do veículo atualizados com sucesso.', 'success');
+        showToast(
+          isAddingNewVehicle
+            ? 'Novo veículo cadastrado com sucesso.'
+            : 'Dados do veículo atualizados com sucesso.',
+          'success'
+        );
       } catch (err) {
         const message =
           err.response?.data?.error ||
@@ -247,16 +328,25 @@ export function useVehicleProfile() {
         setVehicleSaving(false);
       }
     },
-    [hideToast, showToast, user, vehicleForm]
+    [hideToast, showToast, user, vehicleForm, isAddingNewVehicle, blockedVehiclePlate]
   );
 
   const hasVehicleChanges = useMemo(() => {
     if (vehicleLoading || !initialVehicleForm) return false;
     return VEHICLE_FIELDS.some(
-      (field) =>
-        (vehicleForm[field] || '') !== (initialVehicleForm[field] || '')
+      (field) => (vehicleForm[field] || '') !== (initialVehicleForm[field] || '')
     );
   }, [initialVehicleForm, vehicleForm, vehicleLoading]);
+
+  const vehicleSelectOptions = useMemo(
+    () =>
+      vehiclesList.map((v) => ({
+        value: v.id,
+        label: [v.brand, v.model, v.plate].filter(Boolean).join(' · ') || 'Veículo',
+        isDisabled: !!v.isDisabled,
+      })),
+    [vehiclesList]
+  );
 
   return {
     vehicleForm,
@@ -266,10 +356,16 @@ export function useVehicleProfile() {
     vehicleUploadingPhoto,
     vehiclePhotoName,
     vehicleFileInputRef,
+    isAddingNewVehicle,
+    vehiclesList,
+    selectedVehicleId,
+    vehicleSelectOptions,
     handleVehicleChange,
     handleVehicleNumericChange,
     handleVehiclePhotoClick,
     handleVehiclePhotoChange,
     handleVehicleSubmit,
+    handleNewVehicleClick,
+    handleVehicleSelect,
   };
 }
