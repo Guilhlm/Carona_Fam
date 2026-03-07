@@ -2,11 +2,15 @@ import { useState } from 'react';
 import BottomNav from '../components/ui/BottomNav';
 import AdminUsersPage from '../pages/Admin/AdminUsersPage';
 import AdminDriversPage from '../pages/Admin/AdminDriversPage';
+import AdminVehiclesPage from '../pages/Admin/AdminVehiclesPage';
+import AdminReviewsPage from '../pages/Admin/AdminReviewsPage';
 import AdminRidesPage from '../pages/Admin/AdminRidesPage';
 
 const adminNavItems = [
   { id: 'users', label: 'Usuários' },
   { id: 'drivers', label: 'Motoristas' },
+  { id: 'vehicles', label: 'Veículos' },
+  { id: 'reviews', label: 'Reviews' },
   { id: 'rides', label: 'Corridas' },
 ];
 
@@ -18,7 +22,9 @@ export default function AdminLayout() {
       <main className="flex-1 pb-24 px-4 py-8 text-text-main overflow-x-hidden">
         <div className="w-full max-w-4xl mx-auto flex flex-col">
           <header className="mb-4">
-            <h1 className="text-center text-xl mb-5 md:text-2xl font-semibold text-text-main">Área Administrativa</h1>
+            <h1 className="text-center text-xl mb-5 md:text-2xl font-semibold text-text-main">
+              Área Administrativa
+            </h1>
           </header>
 
           <nav className="flex gap-3 mb-4">
@@ -42,9 +48,11 @@ export default function AdminLayout() {
           </nav>
 
           <div className="rounded-[10px] border-2 border-border-muted bg-surface-input/20 backdrop-blur-2xl px-4 py-5 md:px-6 md:py-6 shadow-2xl text-sm text-text-main">
-            {activeTab === 'drivers' && <AdminDriversPage />}
-            {activeTab === 'rides' && activeTab !== 'drivers' && <AdminRidesPage />}
             {activeTab === 'users' && <AdminUsersPage />}
+            {activeTab === 'drivers' && <AdminDriversPage />}
+            {activeTab === 'vehicles' && <AdminVehiclesPage />}
+            {activeTab === 'reviews' && <AdminReviewsPage />}
+            {activeTab === 'rides' && <AdminRidesPage />}
           </div>
         </div>
       </main>

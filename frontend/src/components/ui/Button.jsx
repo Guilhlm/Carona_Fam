@@ -13,9 +13,9 @@ export default function Button({
     secondary: 'bg-gray-200 text-gray-800 hover:bg-gray-300',
     danger: 'bg-red-600 text-white hover:bg-red-700',
     softDanger:
-      'bg-[rgba(207,0,0,0.12)] border border-[rgba(207,0,0,0.8)] text-[#CF0000] hover:bg-[rgba(207,0,0,0.2)]',
+      'bg-[#9C5252]/25 border border-[#9C5252] text-[#9C5252] hover:bg-[#9C5252]/35',
     softUnblock:
-      'bg-[rgba(51,50,50,0.2)] border border-[#799D87] text-[#799D87] hover:bg-[rgba(51,50,50,0.35)]',
+      'bg-[#5F5FAA]/25 border border-[#5F5FAA] text-[#5F5FAA] hover:bg-[#5F5FAA]/35',
     outline: 'border border-gray-300 text-gray-700 hover:bg-gray-50',
   };
   return (

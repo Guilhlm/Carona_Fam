@@ -64,111 +64,7 @@ async function listUsers(filters = {}) {
   };
 }
 
-async function listDrivers(filters = {}) {
-  const { page = 1, limit = 20, search } = filters;
-  const pageNumber = parseInt(page, 10) || 1;
-  const limitNumber = parseInt(limit, 10) || 20;
-  const skip = (pageNumber - 1) * limitNumber;
-
-  const where = { role: 'DRIVER' };
-
-  if (search) {
-    where.OR = [
-      { name: { contains: search, mode: 'insensitive' } },
-      { email: { contains: search, mode: 'insensitive' } },
-    ];
-  }
-
-  const [drivers, total] = await Promise.all([
-    prisma.user.findMany({
-      where,
-      include: {
-        vehiclesAsDriver: true,
-        _count: {
-          select: { ridesAsDriver: true },
-        },
-      },
-      skip,
-      take: limitNumber,
-      orderBy: { name: 'asc' },
-    }),
-    prisma.user.count({ where }),
-  ]);
-
-  const data = drivers.map((d) => ({
-    id: d.id,
-    name: d.name,
-    email: d.email,
-    ra: d.ra,
-    isBlocked: d.isBlocked,
-    vehicles: d.vehiclesAsDriver,
-    rideCount: d._count.ridesAsDriver,
-  }));
-
-  return {
-    data,
-    pagination: {
-      page: pageNumber,
-      limit: limitNumber,
-      total,
-      totalPages: Math.ceil(total / limitNumber),
-    },
-  };
-}
-
-async function listRides(filters = {}) {
-  const { page = 1, limit = 20, status, search } = filters;
-  const pageNumber = parseInt(page, 10) || 1;
-  const limitNumber = parseInt(limit, 10) || 20;
-  const skip = (pageNumber - 1) * limitNumber;
-
-  const where = {};
-
-  if (status) {
-    where.status = status;
-  }
-
-  if (search) {
-    where.OR = [
-      { origin: { contains: search, mode: 'insensitive' } },
-      { destination: { contains: search, mode: 'insensitive' } },
-      {
-        driver: {
-          name: { contains: search, mode: 'insensitive' },
-        },
-      },
-    ];
-  }
-
-  const [rides, total] = await Promise.all([
-    prisma.ride.findMany({
-      where,
-      include: {
-        driver: { select: { id: true, name: true, email: true } },
-        vehicle: { select: { brand: true, model: true, plate: true } },
-        passengers: {
-          include: { passenger: { select: { id: true, name: true, email: true } } },
-        },
-      },
-      skip,
-      take: limitNumber,
-      orderBy: { createdAt: 'desc' },
-    }),
-    prisma.ride.count({ where }),
-  ]);
-
-  return {
-    data: rides,
-    pagination: {
-      page: pageNumber,
-      limit: limitNumber,
-      total,
-      totalPages: Math.ceil(total / limitNumber),
-    },
-  };
-}
-
-async function blockUser(userId, block = true, currentUserId) {
+async function blockUser(userId, block = true, currentUserId, blockReason) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
   });
@@ -185,14 +81,21 @@ async function blockUser(userId, block = true, currentUserId) {
     throw err;
   }
 
+  const updatePayload = { isBlocked: block };
+  if (block && blockReason != null && blockReason !== '') {
+    updatePayload.blockReason = blockReason;
+  } else if (!block) {
+    updatePayload.blockReason = null;
+  }
   const updated = await prisma.user.update({
     where: { id: userId },
-    data: { isBlocked: block },
+    data: updatePayload,
     select: {
       id: true,
       name: true,
       email: true,
       isBlocked: true,
+      blockReason: true,
     },
   });
 
@@ -283,6 +186,7 @@ async function getUser(userId) {
       role: true,
       isAdmin: true,
       isBlocked: true,
+      blockReason: true,
       createdAt: true,
       updatedAt: true,
     },
@@ -318,6 +222,12 @@ async function updateUser(userId, data, currentUserId) {
     typeof data.role !== 'undefined' || typeof data.isAdmin !== 'undefined'
       ? (data.role || user.role) === 'ADMIN' || !!(data.isAdmin ?? user.isAdmin)
       : isAdminUser;
+
+  if (willBeAdmin && !isAdminUser && user.isBlocked) {
+    const err = new Error('Não é possível tornar administrador um usuário bloqueado');
+    err.statusCode = 400;
+    throw err;
+  }
 
   if (isAdminUser && !willBeAdmin) {
     if (user.id === currentUserId) {
@@ -437,301 +347,312 @@ async function deleteUser(userId) {
   return { success: true };
 }
 
+async function listDrivers(filters = {}) {
+  const { page = 1, limit = 20, isBlocked, search } = filters;
+  const pageNumber = parseInt(page, 10) || 1;
+  const limitNumber = parseInt(limit, 10) || 20;
+  const skip = (pageNumber - 1) * limitNumber;
+
+  const andConditions = [{ role: 'DRIVER' }];
+
+  if (isBlocked === 'true' || isBlocked === true) {
+    andConditions.push({ isBlocked: true });
+  } else if (isBlocked === 'false' || isBlocked === false) {
+    andConditions.push({ isBlocked: false });
+  }
+
+  if (search && search.trim()) {
+    const term = search.trim();
+    andConditions.push({
+      OR: [
+        { name: { contains: term, mode: 'insensitive' } },
+        { email: { contains: term, mode: 'insensitive' } },
+        { ra: { contains: term, mode: 'insensitive' } },
+        {
+          vehiclesAsDriver: {
+            some: {
+              OR: [
+                { brand: { contains: term, mode: 'insensitive' } },
+                { model: { contains: term, mode: 'insensitive' } },
+                { plate: { contains: term, mode: 'insensitive' } },
+              ],
+            },
+          },
+        },
+      ],
+    });
+  }
+
+  const where = { AND: andConditions };
+
+  const [drivers, total] = await Promise.all([
+    prisma.user.findMany({
+      where,
+      include: {
+        vehiclesAsDriver: true,
+      },
+      skip,
+      take: limitNumber,
+      orderBy: { name: 'asc' },
+    }),
+    prisma.user.count({ where }),
+  ]);
+
+  return {
+    data: drivers.map((d) => ({
+      id: d.id,
+      name: d.name,
+      email: d.email,
+      ra: d.ra,
+      role: d.role,
+      isAdmin: !!d.isAdmin,
+      isBlocked: !!d.isBlocked,
+      blockReason: d.blockReason ?? null,
+      vehicles: d.vehiclesAsDriver,
+    })),
+    pagination: {
+      page: pageNumber,
+      limit: limitNumber,
+      total,
+      totalPages: Math.ceil(total / limitNumber),
+    },
+  };
+}
+
 async function listVehicles(filters = {}) {
-  const { page = 1, limit = 20, driverId } = filters;
-  const skip = (page - 1) * limit;
+  const { page = 1, limit = 20, isDisabled, search, order } = filters;
+  const pageNumber = parseInt(page, 10) || 1;
+  const limitNumber = parseInt(limit, 10) || 20;
+  const skip = (pageNumber - 1) * limitNumber;
 
   const where = {};
-  if (driverId) {
-    where.driverId = driverId;
+
+  if (isDisabled === 'true' || isDisabled === true) {
+    where.isDisabled = true;
+  } else if (isDisabled === 'false' || isDisabled === false) {
+    where.isDisabled = false;
   }
+
+  if (search && search.trim()) {
+    const term = search.trim();
+    where.OR = [
+      { plate: { contains: term, mode: 'insensitive' } },
+      { brand: { contains: term, mode: 'insensitive' } },
+      { model: { contains: term, mode: 'insensitive' } },
+      { driver: { name: { contains: term, mode: 'insensitive' } } },
+      { driver: { email: { contains: term, mode: 'insensitive' } } },
+    ];
+  }
+
+  let orderBy = [{ plate: 'asc' }];
+  if (order === 'brand_asc') orderBy = [{ brand: 'asc' }, { model: 'asc' }];
+  else if (order === 'brand_desc') orderBy = [{ brand: 'desc' }, { model: 'desc' }];
+  else if (order === 'driver_asc') orderBy = [{ driver: { name: 'asc' } }];
+  else if (order === 'driver_desc') orderBy = [{ driver: { name: 'desc' } }];
 
   const [vehicles, total] = await Promise.all([
     prisma.vehicle.findMany({
       where,
-      include: {
-        driver: {
-          select: { id: true, name: true, email: true },
-        },
-      },
+      include: { driver: { select: { id: true, name: true, email: true, ra: true } } },
       skip,
-      take: limit,
-      orderBy: { createdAt: 'desc' },
+      take: limitNumber,
+      orderBy,
     }),
     prisma.vehicle.count({ where }),
   ]);
 
   return {
-    data: vehicles,
+    data: vehicles.map((v) => ({
+      id: v.id,
+      brand: v.brand,
+      model: v.model,
+      plate: v.plate,
+      year: v.year,
+      isDisabled: !!v.isDisabled,
+      disabledReason: v.disabledReason ?? null,
+      driverId: v.driver?.id,
+      driverName: v.driver?.name,
+      driverEmail: v.driver?.email,
+      driverRa: v.driver?.ra ?? null,
+    })),
     pagination: {
-      page,
-      limit,
+      page: pageNumber,
+      limit: limitNumber,
       total,
-      totalPages: Math.ceil(total / limit),
+      totalPages: Math.ceil(total / limitNumber),
     },
   };
 }
 
-async function createVehicle(data) {
-  const { driverId, brand, model, plate, year, capacityTotal, photoUrl } = data;
-
-  const driver = await prisma.user.findUnique({
-    where: { id: driverId },
-  });
-
-  if (!driver || driver.role !== 'DRIVER') {
-    const err = new Error('Motorista inválido');
-    err.statusCode = 400;
-    throw err;
-  }
-
-  const vehicle = await prisma.vehicle.create({
-    data: {
-      driverId,
-      brand: brand || null,
-      model: model || null,
-      plate,
-      year: year ? parseInt(year, 10) : null,
-      capacityTotal: capacityTotal ? parseInt(capacityTotal, 10) : 4,
-      photoUrl: photoUrl || null,
-    },
-  });
-
-  return vehicle;
-}
-
-async function getVehicle(id) {
-  const vehicle = await prisma.vehicle.findUnique({
-    where: { id },
-    include: {
-      driver: {
-        select: { id: true, name: true, email: true },
-      },
-    },
-  });
-
-  if (!vehicle) {
-    const err = new Error('Veículo não encontrado');
-    err.statusCode = 404;
-    throw err;
-  }
-
-  return vehicle;
-}
-
-async function updateVehicle(id, data) {
-  const vehicle = await prisma.vehicle.findUnique({
-    where: { id },
-  });
-
-  if (!vehicle) {
-    const err = new Error('Veículo não encontrado');
-    err.statusCode = 404;
-    throw err;
-  }
-
-  const updateData = {};
-
-  if (typeof data.brand !== 'undefined') updateData.brand = data.brand || null;
-  if (typeof data.model !== 'undefined') updateData.model = data.model || null;
-  if (typeof data.plate !== 'undefined') updateData.plate = data.plate;
-  if (typeof data.year !== 'undefined') {
-    updateData.year =
-      data.year === null || data.year === ''
-        ? null
-        : parseInt(data.year, 10);
-  }
-  if (typeof data.capacityTotal !== 'undefined') {
-    updateData.capacityTotal = parseInt(data.capacityTotal, 10);
-  }
-  if (typeof data.photoUrl !== 'undefined') {
-    updateData.photoUrl = data.photoUrl || null;
-  }
-
-  const updated = await prisma.vehicle.update({
-    where: { id },
-    data: updateData,
-  });
-
-  return updated;
-}
-
-async function deleteVehicle(id) {
-  const vehicle = await prisma.vehicle.findUnique({
-    where: { id },
-  });
-
-  if (!vehicle) {
-    const err = new Error('Veículo não encontrado');
-    err.statusCode = 404;
-    throw err;
-  }
-
-  await prisma.vehicle.delete({
-    where: { id },
-  });
-
-  return { success: true };
-}
-
-async function createRide(data) {
-  const {
-    origin,
-    destination,
-    driverId,
-    vehicleId,
-    departureAt,
-    arrivalAt,
-    availableSeats,
-    distanceKm,
-    suggestedValue,
-  } = data;
-
-  const driver = await prisma.user.findUnique({
-    where: { id: driverId },
-  });
-
-  if (!driver || driver.role !== 'DRIVER') {
-    const err = new Error('Motorista inválido');
-    err.statusCode = 400;
-    throw err;
-  }
-
+async function disableVehicle(vehicleId, disable = true, disabledReason) {
   const vehicle = await prisma.vehicle.findUnique({
     where: { id: vehicleId },
   });
 
-  if (!vehicle || vehicle.driverId !== driverId) {
-    const err = new Error('Veículo inválido para este motorista');
-    err.statusCode = 400;
+  if (!vehicle) {
+    const err = new Error('Veículo não encontrado');
+    err.statusCode = 404;
     throw err;
   }
 
-  const maxSeats = vehicle.capacityTotal;
-  const seats = availableSeats ? parseInt(availableSeats, 10) : maxSeats;
-
-  if (seats > maxSeats) {
-    const err = new Error('Número de vagas disponível maior que a capacidade do veículo');
-    err.statusCode = 400;
-    throw err;
+  const updatePayload = { isDisabled: !!disable };
+  if (disable && disabledReason != null && disabledReason !== '') {
+    updatePayload.disabledReason = disabledReason;
+  } else if (!disable) {
+    updatePayload.disabledReason = null;
   }
 
-  const ride = await prisma.ride.create({
-    data: {
-      origin,
-      destination,
-      driverId,
-      vehicleId,
-      departureAt: new Date(departureAt),
-      arrivalAt: new Date(arrivalAt),
-      availableSeats: seats,
-      distanceKm: distanceKm || null,
-      suggestedValue: suggestedValue || null,
-    },
+  return prisma.vehicle.update({
+    where: { id: vehicleId },
+    data: updatePayload,
+    include: { driver: { select: { id: true, name: true, email: true } } },
   });
-
-  return ride;
 }
 
-async function getRide(id) {
-  const ride = await prisma.ride.findUnique({
-    where: { id },
-    include: {
-      driver: { select: { id: true, name: true, email: true } },
-      vehicle: { select: { brand: true, model: true, plate: true } },
-      passengers: {
-        include: { passenger: { select: { id: true, name: true, email: true } } },
+async function listReviews(filters = {}) {
+  const { page = 1, limit = 20, isDisabled, search, order } = filters;
+  const pageNumber = parseInt(page, 10) || 1;
+  const limitNumber = parseInt(limit, 10) || 20;
+  const skip = (pageNumber - 1) * limitNumber;
+
+  const where = {};
+
+  if (isDisabled === 'true' || isDisabled === true) {
+    where.isDisabled = true;
+  } else if (isDisabled === 'false' || isDisabled === false) {
+    where.isDisabled = false;
+  }
+
+  if (search && search.trim()) {
+    const term = search.trim();
+    where.OR = [
+      { comment: { contains: term, mode: 'insensitive' } },
+      { reviewer: { name: { contains: term, mode: 'insensitive' } } },
+      { reviewer: { email: { contains: term, mode: 'insensitive' } } },
+      { reviewed: { name: { contains: term, mode: 'insensitive' } } },
+      { reviewed: { email: { contains: term, mode: 'insensitive' } } },
+    ];
+  }
+
+  let orderBy = [{ createdAt: 'desc' }];
+  if (order === 'rating_desc') orderBy = [{ rating: 'desc' }, { createdAt: 'desc' }];
+  else if (order === 'driver_asc') orderBy = [{ reviewed: { name: 'asc' } }];
+  else if (order === 'driver_desc') orderBy = [{ reviewed: { name: 'desc' } }];
+
+  const [reviews, total] = await Promise.all([
+    prisma.review.findMany({
+      where,
+      include: {
+        reviewer: { select: { id: true, name: true, email: true, ra: true } },
+        reviewed: { select: { id: true, name: true, email: true, ra: true } },
+        ride: {
+          select: {
+            id: true,
+            origin: true,
+            destination: true,
+            departureAt: true,
+            arrivalAt: true,
+            status: true,
+            driver: { select: { id: true, name: true, email: true } },
+            vehicle: { select: { brand: true, model: true, plate: true } },
+            passengers: {
+              include: { passenger: { select: { id: true, name: true, email: true } } },
+            },
+          },
+        },
       },
+      skip,
+      take: limitNumber,
+      orderBy,
+    }),
+    prisma.review.count({ where }),
+  ]);
+
+  return {
+    data: reviews.map((r) => ({
+      id: r.id,
+      rideId: r.rideId,
+      rating: r.rating,
+      comment: r.comment ?? null,
+      isDisabled: !!r.isDisabled,
+      disabledReason: r.disabledReason ?? null,
+      createdAt: r.createdAt,
+      reviewerId: r.reviewer?.id,
+      reviewerName: r.reviewer?.name,
+      reviewerEmail: r.reviewer?.email,
+      reviewerRa: r.reviewer?.ra ?? null,
+      reviewedId: r.reviewed?.id,
+      reviewedName: r.reviewed?.name,
+      reviewedEmail: r.reviewed?.email,
+      reviewedRa: r.reviewed?.ra ?? null,
+      ride: r.ride
+        ? {
+            id: r.ride.id,
+            origin: r.ride.origin,
+            destination: r.ride.destination,
+            departureAt: r.ride.departureAt,
+            arrivalAt: r.ride.arrivalAt,
+            status: r.ride.status,
+            driverName: r.ride.driver?.name,
+            driverEmail: r.ride.driver?.email,
+            vehicle: r.ride.vehicle
+              ? `${r.ride.vehicle.brand ?? ''} ${r.ride.vehicle.model ?? ''} (${r.ride.vehicle.plate ?? ''})`.trim()
+              : null,
+            passengers: (r.ride.passengers ?? []).map((p) => ({
+              id: p.passenger?.id,
+              name: p.passenger?.name,
+              email: p.passenger?.email,
+            })),
+          }
+        : null,
+    })),
+    pagination: {
+      page: pageNumber,
+      limit: limitNumber,
+      total,
+      totalPages: Math.ceil(total / limitNumber),
+    },
+  };
+}
+
+async function disableReview(reviewId, disable = true, disabledReason) {
+  const review = await prisma.review.findUnique({
+    where: { id: reviewId },
+  });
+
+  if (!review) {
+    const err = new Error('Avaliação não encontrada');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const updatePayload = { isDisabled: !!disable };
+  if (disable && disabledReason != null && disabledReason !== '') {
+    updatePayload.disabledReason = disabledReason;
+  } else if (!disable) {
+    updatePayload.disabledReason = null;
+  }
+
+  return prisma.review.update({
+    where: { id: reviewId },
+    data: updatePayload,
+    include: {
+      reviewer: { select: { id: true, name: true, email: true } },
+      reviewed: { select: { id: true, name: true, email: true } },
     },
   });
-
-  if (!ride) {
-    const err = new Error('Corrida não encontrada');
-    err.statusCode = 404;
-    throw err;
-  }
-
-  return ride;
-}
-
-async function updateRide(id, data) {
-  const ride = await prisma.ride.findUnique({
-    where: { id },
-  });
-
-  if (!ride) {
-    const err = new Error('Corrida não encontrada');
-    err.statusCode = 404;
-    throw err;
-  }
-
-  const updateData = {};
-
-  if (typeof data.origin !== 'undefined') updateData.origin = data.origin;
-  if (typeof data.destination !== 'undefined') {
-    updateData.destination = data.destination;
-  }
-  if (typeof data.driverId !== 'undefined') updateData.driverId = data.driverId;
-  if (typeof data.vehicleId !== 'undefined') updateData.vehicleId = data.vehicleId;
-  if (typeof data.departureAt !== 'undefined') {
-    updateData.departureAt = new Date(data.departureAt);
-  }
-  if (typeof data.arrivalAt !== 'undefined') {
-    updateData.arrivalAt = new Date(data.arrivalAt);
-  }
-  if (typeof data.availableSeats !== 'undefined') {
-    updateData.availableSeats = parseInt(data.availableSeats, 10);
-  }
-  if (typeof data.status !== 'undefined') updateData.status = data.status;
-  if (typeof data.distanceKm !== 'undefined') {
-    updateData.distanceKm = data.distanceKm;
-  }
-  if (typeof data.suggestedValue !== 'undefined') {
-    updateData.suggestedValue = data.suggestedValue;
-  }
-
-  const updated = await prisma.ride.update({
-    where: { id },
-    data: updateData,
-  });
-
-  return updated;
-}
-
-async function deleteRide(id) {
-  const ride = await prisma.ride.findUnique({
-    where: { id },
-  });
-
-  if (!ride) {
-    const err = new Error('Corrida não encontrada');
-    err.statusCode = 404;
-    throw err;
-  }
-
-  await prisma.ride.delete({
-    where: { id },
-  });
-
-  return { success: true };
 }
 
 module.exports = {
   listUsers,
   listDrivers,
-  listRides,
+  listVehicles,
+  listReviews,
   blockUser,
+  disableVehicle,
+  disableReview,
   createUser,
   getUser,
   updateUser,
   deleteUser,
-  listVehicles,
-  createVehicle,
-  getVehicle,
-  updateVehicle,
-  deleteVehicle,
-  createRide,
-  getRide,
-  updateRide,
-  deleteRide,
 };

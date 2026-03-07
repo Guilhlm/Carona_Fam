@@ -10,23 +10,17 @@ router.use(authMiddleware);
 router.use(adminMiddleware);
 
 router.get('/users', AdminController.listUsers);
+router.get('/rides', AdminController.listRides);
+router.patch('/rides/:id/cancel', validateParams(['id']), AdminController.cancelRide);
+router.get('/drivers', AdminController.listDrivers);
+router.get('/vehicles', AdminController.listVehicles);
+router.get('/reviews', AdminController.listReviews);
 router.post('/users', AdminController.createUser);
 router.get('/users/:id', validateParams(['id']), AdminController.getUser);
 router.patch('/users/:id', validateParams(['id']), AdminController.updateUser);
 router.delete('/users/:id', validateParams(['id']), AdminController.deleteUser);
-router.get('/drivers', AdminController.listDrivers);
-router.get('/rides', AdminController.listRides);
 router.patch('/users/:id/block', validateParams(['id']), AdminController.blockUser);
-
-router.get('/vehicles', AdminController.listVehicles);
-router.post('/vehicles', AdminController.createVehicle);
-router.get('/vehicles/:id', validateParams(['id']), AdminController.getVehicle);
-router.patch('/vehicles/:id', validateParams(['id']), AdminController.updateVehicle);
-router.delete('/vehicles/:id', validateParams(['id']), AdminController.deleteVehicle);
-
-router.post('/rides', AdminController.createRide);
-router.get('/rides/:id', validateParams(['id']), AdminController.getRide);
-router.patch('/rides/:id', validateParams(['id']), AdminController.updateRide);
-router.delete('/rides/:id', validateParams(['id']), AdminController.deleteRide);
+router.patch('/vehicles/:id/disable', validateParams(['id']), AdminController.disableVehicle);
+router.patch('/reviews/:id/disable', validateParams(['id']), AdminController.disableReview);
 
 module.exports = router;

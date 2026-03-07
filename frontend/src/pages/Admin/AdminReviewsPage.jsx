@@ -1,12 +1,12 @@
-import { useAdminRides } from '../../hooks/admin/useAdminRides';
+import { useAdminReviews } from '../../hooks/admin/useAdminReviews';
 import AdminFilters from './components/AdminFilters';
-import { buildSelects, RIDES_SELECTS } from './components/adminFilterConfig';
+import { buildSelects, REVIEWS_SELECTS } from './components/adminFilterConfig';
 import AdminCard from './components/AdminCard';
 import AdminPagination from './AdminPagination';
 
-export default function AdminRidesPage() {
+export default function AdminReviewsPage() {
   const {
-    displayRides,
+    displayReviews,
     pagination,
     loading,
     page,
@@ -15,9 +15,9 @@ export default function AdminRidesPage() {
     resetExpand,
     handlePageChange,
     handleToggleExpand,
-    handleCancelRide,
+    handleDisable,
     expandedId,
-  } = useAdminRides();
+  } = useAdminReviews();
 
   const handleFilterChange = (key, value) => {
     setFilter(key, value);
@@ -25,7 +25,7 @@ export default function AdminRidesPage() {
   };
 
   const selects = buildSelects(
-    RIDES_SELECTS,
+    REVIEWS_SELECTS,
     filters,
     (k, v) => handleFilterChange(k, v)
   );
@@ -33,11 +33,13 @@ export default function AdminRidesPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-lg md:text-xl font-semibold text-text-main">Corridas</h1>
+        <h1 className="text-lg md:text-xl font-semibold text-text-main">
+          Reviews
+        </h1>
       </div>
 
       <AdminFilters
-        searchPlaceholder="Buscar por origem, destino, motorista ou passageiro"
+        searchPlaceholder="Buscar por comentário ou nome"
         searchValue={filters.search}
         onSearchChange={(v) => handleFilterChange('search', v)}
         selects={selects}
@@ -46,20 +48,20 @@ export default function AdminRidesPage() {
 
       {loading ? (
         <p className="text-xs md:text-sm text-text-muted">Carregando...</p>
-      ) : displayRides.length === 0 ? (
+      ) : displayReviews.length === 0 ? (
         <p className="text-xs md:text-sm text-text-muted">
-          Nenhuma corrida encontrada com os filtros atuais.
+          Nenhuma avaliação encontrada com os filtros atuais.
         </p>
       ) : (
         <div className="space-y-3">
-          {displayRides.map((ride) => (
+          {displayReviews.map((review) => (
             <AdminCard
-              key={ride.id}
-              variant="ride"
-              item={ride}
-              expanded={expandedId === ride.id}
+              key={review.id}
+              variant="review"
+              item={review}
+              expanded={expandedId === review.id}
               onToggleExpand={handleToggleExpand}
-              onCancelRide={handleCancelRide}
+              onToggleDisable={handleDisable}
             />
           ))}
 

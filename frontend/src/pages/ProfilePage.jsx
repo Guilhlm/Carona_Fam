@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import AuthInput from '../components/ui/AuthInput';
+import CustomSelect from '../components/ui/CustomSelect';
 import { useAuth } from '../contexts/AuthContext';
 import { useProfile, PROFILE_INPUT_FIELDS } from '../hooks/useProfile';
 import { useChangePassword } from '../hooks/useChangePassword';
@@ -104,16 +105,19 @@ export default function ProfilePage() {
             )}
 
             <ProfileFieldRow label="Gênero:">
-              <div className="flex items-center gap-3 h-[55px] rounded-[10px] border border-border-muted bg-surface-input/20 backdrop-blur-2xl px-3 text-sm text-text-muted">
-                <select
+              <div className="w-full">
+                <CustomSelect
                   value={form.gender}
-                  onChange={handleChange('gender')}
-                  className="w-full h-full bg-transparent text-sm text-text-main focus:outline-none"
-                >
-                  <option value="">Não selecionado</option>
-                  <option value="MASCULINO">Masculino</option>
-                  <option value="FEMININO">Feminino</option>
-                </select>
+                  onChange={(value) => handleChange('gender')({ target: { value } })}
+                  options={[
+                    { value: '', label: 'Não selecionado' },
+                    { value: 'MASCULINO', label: 'Masculino' },
+                    { value: 'FEMININO', label: 'Feminino' },
+                  ]}
+                  placeholder="Não selecionado"
+                  size="md"
+                  aria-label="Gênero"
+                />
               </div>
             </ProfileFieldRow>
 

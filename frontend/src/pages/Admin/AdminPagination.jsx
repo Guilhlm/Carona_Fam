@@ -1,6 +1,6 @@
 import Button from '../../components/ui/Button';
 
-export default function AdminUsersPagination({ pagination, page, onPageChange }) {
+export default function AdminPagination({ pagination, page, onPageChange }) {
   if (!pagination || pagination.totalPages <= 1) {
     return null;
   }
@@ -9,20 +9,20 @@ export default function AdminUsersPagination({ pagination, page, onPageChange })
   const canGoNext = page < pagination.totalPages;
 
   return (
-    <div className="pt-1 flex justify-between items-center text-xs md:text-sm text-text-muted">
+    <div className="pt-5 flex justify-between items-center text-xs md:text-sm text-text-muted">
       <p>
         Página {pagination.page} de {pagination.totalPages}
       </p>
       <div className="flex gap-2">
         <Button
-          variant="secondary"
+          variant="brand"
           disabled={!canGoPrev}
           onClick={() => canGoPrev && onPageChange(page - 1)}
           className="h-[32px] px-3 text-xs"
         >Anterior</Button>
 
         <Button
-          variant="secondary"
+          variant="brand"
           disabled={!canGoNext}
           onClick={() => canGoNext && onPageChange(page + 1)}
           className="h-[32px] px-3 text-xs"

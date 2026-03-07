@@ -1,33 +1,33 @@
-import { useAuth } from '../../contexts/AuthContext';
-import { useAdminDrivers } from '../../hooks/admin/useAdminDrivers';
+import { useAdminVehicles } from '../../hooks/admin/useAdminVehicles';
 import AdminFilters from './components/AdminFilters';
-import { buildSelects, DRIVERS_SELECTS } from './components/adminFilterConfig';
+import { buildSelects, VEHICLES_SELECTS } from './components/adminFilterConfig';
 import AdminCard from './components/AdminCard';
 import AdminPagination from './AdminPagination';
 
-export default function AdminDriversPage() {
-  const { user: currentUser } = useAuth();
+export default function AdminVehiclesPage() {
   const {
-    drivers,
+    vehicles,
     pagination,
     loading,
     page,
     setPage,
     filters,
     setFilter,
-    handleBlock,
-  } = useAdminDrivers();
+    handleDisable,
+  } = useAdminVehicles();
 
-  const selects = buildSelects(DRIVERS_SELECTS, filters, setFilter);
+  const selects = buildSelects(VEHICLES_SELECTS, filters, setFilter);
 
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-lg md:text-xl font-semibold text-text-main">Motoristas</h1>
+        <h1 className="text-lg md:text-xl font-semibold text-text-main">
+          Veículos
+        </h1>
       </div>
 
       <AdminFilters
-        searchPlaceholder="Buscar por nome ou carro"
+        searchPlaceholder="Buscar por placa, marca ou motorista"
         searchValue={filters.search}
         onSearchChange={(v) => setFilter('search', v)}
         selects={selects}
@@ -36,19 +36,18 @@ export default function AdminDriversPage() {
 
       {loading ? (
         <p className="text-xs md:text-sm text-text-muted">Carregando...</p>
-      ) : drivers.length === 0 ? (
+      ) : vehicles.length === 0 ? (
         <p className="text-xs md:text-sm text-text-muted">
-          Nenhum motorista encontrado com os filtros atuais.
+          Nenhum veículo encontrado com os filtros atuais.
         </p>
       ) : (
         <div className="space-y-3">
-          {drivers.map((driver) => (
+          {vehicles.map((vehicle) => (
             <AdminCard
-              key={driver.id}
-              variant="driver"
-              item={driver}
-              isCurrentUser={driver.id === currentUser?.id}
-              onToggleBlock={handleBlock}
+              key={vehicle.id}
+              variant="vehicle"
+              item={vehicle}
+              onToggleDisable={handleDisable}
             />
           ))}
 

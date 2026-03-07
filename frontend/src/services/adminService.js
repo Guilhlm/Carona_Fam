@@ -5,18 +5,50 @@ export async function listUsers(params = {}) {
   return data.data || data;
 }
 
+export async function listRides(params = {}) {
+  const { data } = await api.get('/admin/rides', { params });
+  // Backend envia { success: true, data: { data: rides, pagination } } — retornar o payload interno
+  return data?.data != null ? data.data : data;
+}
+
+export async function cancelRide(rideId) {
+  const { data } = await api.patch(`/admin/rides/${rideId}/cancel`);
+  return data?.data ?? data;
+}
+
 export async function listDrivers(params = {}) {
   const { data } = await api.get('/admin/drivers', { params });
   return data.data || data;
 }
 
-export async function listRides(params = {}) {
-  const { data } = await api.get('/admin/rides', { params });
+export async function listVehicles(params = {}) {
+  const { data } = await api.get('/admin/vehicles', { params });
   return data.data || data;
 }
 
-export async function blockUser(userId, block = true) {
-  const { data } = await api.patch(`/admin/users/${userId}/block`, { block });
+export async function disableVehicle(vehicleId, disable = true, disabledReason) {
+  const { data } = await api.patch(`/admin/vehicles/${vehicleId}/disable`, {
+    disable,
+    disabledReason,
+  });
+  return data.data || data;
+}
+
+export async function listReviews(params = {}) {
+  const { data } = await api.get('/admin/reviews', { params });
+  return data.data || data;
+}
+
+export async function disableReview(reviewId, disable = true, disabledReason) {
+  const { data } = await api.patch(`/admin/reviews/${reviewId}/disable`, {
+    disable,
+    disabledReason,
+  });
+  return data.data || data;
+}
+
+export async function blockUser(userId, block = true, blockReason) {
+  const { data } = await api.patch(`/admin/users/${userId}/block`, { block, blockReason });
   return data.data || data;
 }
 
@@ -37,50 +69,5 @@ export async function updateUser(id, payload) {
 
 export async function deleteUser(id) {
   const { data } = await api.delete(`/admin/users/${id}`);
-  return data.data || data;
-}
-
-export async function listVehicles(params = {}) {
-  const { data } = await api.get('/admin/vehicles', { params });
-  return data.data || data;
-}
-
-export async function createVehicle(payload) {
-  const { data } = await api.post('/admin/vehicles', payload);
-  return data.data || data;
-}
-
-export async function getVehicle(id) {
-  const { data } = await api.get(`/admin/vehicles/${id}`);
-  return data.data || data;
-}
-
-export async function updateVehicle(id, payload) {
-  const { data } = await api.patch(`/admin/vehicles/${id}`, payload);
-  return data.data || data;
-}
-
-export async function deleteVehicle(id) {
-  const { data } = await api.delete(`/admin/vehicles/${id}`);
-  return data.data || data;
-}
-
-export async function createRide(payload) {
-  const { data } = await api.post('/admin/rides', payload);
-  return data.data || data;
-}
-
-export async function getRide(id) {
-  const { data } = await api.get(`/admin/rides/${id}`);
-  return data.data || data;
-}
-
-export async function updateRide(id, payload) {
-  const { data } = await api.patch(`/admin/rides/${id}`, payload);
-  return data.data || data;
-}
-
-export async function deleteRide(id) {
-  const { data } = await api.delete(`/admin/rides/${id}`);
   return data.data || data;
 }

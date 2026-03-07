@@ -26,6 +26,7 @@ CREATE TABLE "User" (
     "role" "UserRole" NOT NULL DEFAULT 'USER',
     "isAdmin" BOOLEAN NOT NULL DEFAULT false,
     "isBlocked" BOOLEAN NOT NULL DEFAULT false,
+    "blockReason" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -42,6 +43,8 @@ CREATE TABLE "Vehicle" (
     "year" INTEGER,
     "capacityTotal" INTEGER NOT NULL,
     "photoUrl" TEXT,
+    "isDisabled" BOOLEAN NOT NULL DEFAULT false,
+    "disabledReason" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -74,6 +77,7 @@ CREATE TABLE "RidePassenger" (
     "passengerId" TEXT NOT NULL,
     "status" "RidePassengerStatus" NOT NULL DEFAULT 'PENDING',
     "requestedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "finishedAt" TIMESTAMP(3),
 
     CONSTRAINT "RidePassenger_pkey" PRIMARY KEY ("id")
 );
@@ -86,6 +90,8 @@ CREATE TABLE "Review" (
     "reviewedId" TEXT NOT NULL,
     "rating" INTEGER NOT NULL,
     "comment" TEXT,
+    "isDisabled" BOOLEAN NOT NULL DEFAULT false,
+    "disabledReason" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Review_pkey" PRIMARY KEY ("id")

@@ -1,8 +1,9 @@
 import { useAuth } from '../../contexts/AuthContext';
-import { useAdminUsers } from '../../hooks/useAdminUsers';
-import AdminUsersFilters from './AdminUsersFilters';
-import AdminUserCard from './AdminUserCard';
-import AdminUsersPagination from './AdminUsersPagination';
+import { useAdminUsers } from '../../hooks/admin/useAdminUsers';
+import AdminFilters from './components/AdminFilters';
+import { buildSelects, USERS_SELECTS } from './components/adminFilterConfig';
+import AdminCard from './components/AdminCard';
+import AdminPagination from './AdminPagination';
 
 export default function AdminUsersPage() {
   const { user: currentUser } = useAuth();
@@ -18,32 +19,28 @@ export default function AdminUsersPage() {
     setFilterBlocked,
     filterRole,
     setFilterRole,
-    handleSearchSubmit,
     handleBlock,
     handleToggleAdmin,
   } = useAdminUsers();
 
+  const filters = { filterRole, filterBlocked };
+  const setFilter = (key, value) => {
+    if (key === 'filterRole') setFilterRole(value);
+    else setFilterBlocked(value);
+  };
+  const selects = buildSelects(USERS_SELECTS, filters, setFilter);
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-8">
       <div>
         <h1 className="text-lg md:text-xl font-semibold text-text-main">Usuários</h1>
-        <p className="text-xs md:text-sm text-text-muted mt-1">Liste, filtre e gerencie permissões e bloqueios.</p>
       </div>
 
-      <AdminUsersFilters
-        search={search}
+      <AdminFilters
+        searchPlaceholder="Buscar por nome, email ou RA"
+        searchValue={search}
         onSearchChange={setSearch}
-        onSubmit={handleSearchSubmit}
-        filterRole={filterRole}
-        onFilterRoleChange={(value) => {
-          setFilterRole(value);
-          setPage(1);
-        }}
-        filterBlocked={filterBlocked}
-        onFilterBlockedChange={(value) => {
-          setFilterBlocked(value);
-          setPage(1);
-        }}
+        selects={selects}
         loading={loading}
       />
 
@@ -54,16 +51,17 @@ export default function AdminUsersPage() {
       ) : (
         <div className="space-y-3">
           {users.map((user) => (
-            <AdminUserCard
+            <AdminCard
               key={user.id}
-              user={user}
+              variant="user"
+              item={user}
               isCurrentUser={user.id === currentUser?.id}
               onToggleAdmin={handleToggleAdmin}
               onToggleBlock={handleBlock}
             />
           ))}
 
-          <AdminUsersPagination
+          <AdminPagination
             pagination={pagination}
             page={page}
             onPageChange={setPage}
