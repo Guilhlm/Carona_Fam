@@ -2,12 +2,16 @@ const { prisma } = require('../config/database');
 const { hashPassword } = require('../utils/password');
 
 async function listUsers(filters = {}) {
-  const { page = 1, limit = 20, isBlocked, role, search } = filters;
+  const { page = 1, limit = 20, isBlocked, role, search, excludeUserId } = filters;
   const pageNumber = parseInt(page, 10) || 1;
   const limitNumber = parseInt(limit, 10) || 20;
   const skip = (pageNumber - 1) * limitNumber;
 
   const andConditions = [];
+
+  if (excludeUserId) {
+    andConditions.push({ id: { not: excludeUserId } });
+  }
 
   if (typeof isBlocked === 'boolean') {
     andConditions.push({ isBlocked });

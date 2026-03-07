@@ -65,7 +65,7 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="min-h-screen flex justify-center px-4 py-8 text-text-main relative overflow-x-hidden">
+    <div className="min-h-screen flex justify-center px-4 pt-10 pb-2 text-text-main relative overflow-x-hidden">
       <div className="w-full max-w-4xl">
         <div className="rounded-[10px] border-2 border-border-muted bg-surface-input/20 backdrop-blur-2xl px-6 py-7 md:px-10 md:py-9 shadow-2xl text-sm text-text-main relative space-y-8">
           <ProfileHeader

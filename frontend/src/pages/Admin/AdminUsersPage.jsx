@@ -1,4 +1,3 @@
-import { useAuth } from '../../contexts/AuthContext';
 import { useAdminUsers } from '../../hooks/admin/useAdminUsers';
 import AdminFilters from './components/AdminFilters';
 import { buildSelects, USERS_SELECTS } from './components/adminFilterConfig';
@@ -6,7 +5,6 @@ import AdminCard from './components/AdminCard';
 import AdminPagination from './AdminPagination';
 
 export default function AdminUsersPage() {
-  const { user: currentUser } = useAuth();
   const {
     users,
     pagination,
@@ -55,7 +53,6 @@ export default function AdminUsersPage() {
               key={user.id}
               variant="user"
               item={user}
-              isCurrentUser={user.id === currentUser?.id}
               onToggleAdmin={handleToggleAdmin}
               onToggleBlock={handleBlock}
             />

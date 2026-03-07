@@ -56,6 +56,7 @@ function AdminCard({
   const containerClass =
     'rounded-[10px] border border-white/10 bg-surface-input/30 backdrop-blur-2xl px-4 py-3 md:px-5 md:py-4 flex flex-col gap-2 flex-shrink-0 ' +
     (expandable ? 'cursor-pointer transition-all ' : 'h-[180px] ') +
+    (expandable ? 'hover:border-[1px] hover:border-brand ' : '') +
     (expandable && expanded ? 'h-[372px] ' : expandable ? 'h-[180px] ' : '') +
     (expandable && !expanded ? 'md:flex-row md:items-center md:justify-between' : '') +
     (expandable && expanded ? ' overflow-hidden' : '');

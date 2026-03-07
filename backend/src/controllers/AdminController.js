@@ -133,19 +133,8 @@ async function listUsers(req, res, next) {
       isBlocked: isBlockedBool,
       role,
       search,
+      excludeUserId: req.user?.id,
     });
-
-    const noFilters =
-      !search && !role && typeof isBlocked === 'undefined' && (!page || page === '1');
-
-    if (noFilters && req.user && Array.isArray(result?.data)) {
-      const currentUserId = req.user.id;
-      result.data.sort((a, b) => {
-        if (a.id === currentUserId) return -1;
-        if (b.id === currentUserId) return 1;
-        return 0;
-      });
-    }
 
     return success(res, result);
   } catch (err) {
