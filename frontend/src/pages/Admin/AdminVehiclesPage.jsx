@@ -41,15 +41,17 @@ export default function AdminVehiclesPage() {
           Nenhum veículo encontrado com os filtros atuais.
         </p>
       ) : (
-        <div className="space-y-3">
-          {vehicles.map((vehicle) => (
-            <AdminCard
-              key={vehicle.id}
-              variant="vehicle"
-              item={vehicle}
-              onToggleDisable={handleDisable}
-            />
-          ))}
+        <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {vehicles.map((vehicle) => (
+              <AdminCard
+                key={vehicle.id}
+                variant="vehicle"
+                item={vehicle}
+                onToggleDisable={handleDisable}
+              />
+            ))}
+          </div>
 
           <AdminPagination
             pagination={pagination}

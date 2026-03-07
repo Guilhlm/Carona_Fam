@@ -53,17 +53,23 @@ export default function AdminReviewsPage() {
           Nenhuma avaliação encontrada com os filtros atuais.
         </p>
       ) : (
-        <div className="space-y-3">
-          {displayReviews.map((review) => (
-            <AdminCard
-              key={review.id}
-              variant="review"
-              item={review}
-              expanded={expandedId === review.id}
-              onToggleExpand={handleToggleExpand}
-              onToggleDisable={handleDisable}
-            />
-          ))}
+        <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {displayReviews.map((review) => (
+              <div
+                key={review.id}
+                className={expandedId === review.id ? 'md:col-span-2' : ''}
+              >
+                <AdminCard
+                  variant="review"
+                  item={review}
+                  expanded={expandedId === review.id}
+                  onToggleExpand={handleToggleExpand}
+                  onToggleDisable={handleDisable}
+                />
+              </div>
+            ))}
+          </div>
 
           <AdminPagination
             pagination={pagination}

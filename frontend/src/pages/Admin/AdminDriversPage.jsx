@@ -41,16 +41,18 @@ export default function AdminDriversPage() {
           Nenhum motorista encontrado com os filtros atuais.
         </p>
       ) : (
-        <div className="space-y-3">
-          {drivers.map((driver) => (
-            <AdminCard
-              key={driver.id}
-              variant="driver"
-              item={driver}
-              isCurrentUser={driver.id === currentUser?.id}
-              onToggleBlock={handleBlock}
-            />
-          ))}
+        <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {drivers.map((driver) => (
+              <AdminCard
+                key={driver.id}
+                variant="driver"
+                item={driver}
+                isCurrentUser={driver.id === currentUser?.id}
+                onToggleBlock={handleBlock}
+              />
+            ))}
+          </div>
 
           <AdminPagination
             pagination={pagination}

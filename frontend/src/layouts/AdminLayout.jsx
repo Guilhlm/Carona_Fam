@@ -20,7 +20,7 @@ export default function AdminLayout() {
   return (
     <div className="min-h-screen flex flex-col relative">
       <main className="flex-1 pb-24 px-4 py-8 text-text-main overflow-x-hidden">
-        <div className="w-full max-w-4xl mx-auto flex flex-col">
+        <div className="w-full max-w-4xl md:max-w-5xl xl:max-w-6xl mx-auto flex flex-col">
           <header className="mb-4">
             <h1 className="text-center text-xl mb-5 md:text-2xl font-semibold text-text-main">
               Área Administrativa

@@ -47,16 +47,18 @@ export default function AdminUsersPage() {
       ) : users.length === 0 ? (
         <p className="text-xs md:text-sm text-text-muted">Nenhum usuário encontrado com os filtros atuais.</p>
       ) : (
-        <div className="space-y-3">
-          {users.map((user) => (
-            <AdminCard
-              key={user.id}
-              variant="user"
-              item={user}
-              onToggleAdmin={handleToggleAdmin}
-              onToggleBlock={handleBlock}
-            />
-          ))}
+        <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {users.map((user) => (
+              <AdminCard
+                key={user.id}
+                variant="user"
+                item={user}
+                onToggleAdmin={handleToggleAdmin}
+                onToggleBlock={handleBlock}
+              />
+            ))}
+          </div>
 
           <AdminPagination
             pagination={pagination}

@@ -51,17 +51,23 @@ export default function AdminRidesPage() {
           Nenhuma corrida encontrada com os filtros atuais.
         </p>
       ) : (
-        <div className="space-y-3">
-          {displayRides.map((ride) => (
-            <AdminCard
-              key={ride.id}
-              variant="ride"
-              item={ride}
-              expanded={expandedId === ride.id}
-              onToggleExpand={handleToggleExpand}
-              onCancelRide={handleCancelRide}
-            />
-          ))}
+        <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {displayRides.map((ride) => (
+              <div
+                key={ride.id}
+                className={expandedId === ride.id ? 'md:col-span-2' : ''}
+              >
+                <AdminCard
+                  variant="ride"
+                  item={ride}
+                  expanded={expandedId === ride.id}
+                  onToggleExpand={handleToggleExpand}
+                  onCancelRide={handleCancelRide}
+                />
+              </div>
+            ))}
+          </div>
 
           <AdminPagination
             pagination={pagination}

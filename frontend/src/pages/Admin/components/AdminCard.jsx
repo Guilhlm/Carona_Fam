@@ -55,10 +55,9 @@ function AdminCard({
 
   const containerClass =
     'rounded-[10px] border border-white/10 bg-surface-input/30 backdrop-blur-2xl px-4 py-3 md:px-5 md:py-4 flex flex-col gap-2 flex-shrink-0 ' +
-    (expandable ? 'cursor-pointer transition-all ' : 'h-[180px] ') +
+    (expandable ? 'cursor-pointer transition-all ' : 'h-[180px] md:h-[220px] ') +
     (expandable ? 'hover:border-[1px] hover:border-brand ' : '') +
-    (expandable && expanded ? 'h-[372px] ' : expandable ? 'h-[180px] ' : '') +
-    (expandable && !expanded ? 'md:flex-row md:items-center md:justify-between' : '') +
+    (expandable && expanded ? 'h-[372px] md:h-[420px] ' : expandable ? 'h-[180px] md:h-[220px] ' : '') +
     (expandable && expanded ? ' overflow-hidden' : '');
 
   const leftClass =
@@ -83,16 +82,12 @@ function AdminCard({
       aria-expanded={expandable ? expanded : undefined}
     >
       <div className={leftClass}>
-        <div className="hidden md:block md:self-start shrink-0">
-          <Badge variant={badge.variant}>{badge.label}</Badge>
-        </div>
-
         <div className={`min-w-0 ${expandable ? 'shrink-0' : ''}`}>
           <div className="flex items-center justify-between gap-2 pb-[5px]">
             <div className="flex items-center gap-2 min-w-0 flex-wrap">
               {getTitle(item)}
             </div>
-            <div className="md:hidden shrink-0">
+            <div className="shrink-0">
               <Badge variant={badge.variant}>{badge.label}</Badge>
             </div>
           </div>
@@ -104,7 +99,7 @@ function AdminCard({
 
       {!hideActions && (actionType === 'disable-with-reason' || actionType === 'block-with-reason') && (
         <div
-          className="flex flex-col gap-2 mt-4 md:mt-0 w-full md:w-[260px] md:flex-none md:flex-shrink-0"
+          className="flex flex-col gap-2 mt-4 md:mt-0 w-full"
           onClick={(e) => e.stopPropagation()}
         >
           {config.getIsDisabled(item) ? (
@@ -141,7 +136,7 @@ function AdminCard({
 
       {!hideActions && actionType === 'cancel' && !expanded && config.showCancelWhen?.(item) && onCancelRide && (
         <div
-          className="flex flex-col gap-2 mt-4 md:mt-0 w-full md:w-[260px] md:flex-none md:flex-shrink-0"
+          className="flex flex-col gap-2 mt-4 md:mt-0 w-full"
           onClick={(e) => e.stopPropagation()}
         >
           <Button
@@ -156,7 +151,7 @@ function AdminCard({
 
       {!hideActions && actionType === 'user-actions' && (
         <div
-          className="flex flex-col gap-2 mt-4 md:mt-0 w-full md:w-[260px] md:flex-none md:flex-shrink-0"
+          className="flex flex-col gap-2 mt-4 md:mt-0 w-full"
           onClick={(e) => e.stopPropagation()}
         >
           <Button
