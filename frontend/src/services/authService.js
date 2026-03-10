@@ -18,3 +18,10 @@ export async function resetPassword({ email, ra, newPassword }) {
   });
   return data.data;
 }
+
+export async function changePassword({ newPassword }) {
+  const { data } = await api.post('/auth/change-password', {
+    newPassword,
+  });
+  return data.data;
+}

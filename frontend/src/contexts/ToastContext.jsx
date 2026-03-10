@@ -1,41 +1,60 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 
 const ToastContext = createContext(null);
 
+const DEFAULT_DURATION_MS = 5000;
+
 export function ToastProvider({ children }) {
+  const location = useLocation();
   const [toast, setToast] = useState(null);
   const [progress, setProgress] = useState(100);
   const timeoutRef = useRef(null);
+  const intervalRef = useRef(null);
 
-  const showToast = useCallback((message, type = 'info') => {
-    if (!message) return;
-
+  const clearTimersAndHide = useCallback(() => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    setToast(null);
+    setProgress(100);
+  }, []);
+
+  const showToast = useCallback((message, type = 'info', durationMs = DEFAULT_DURATION_MS) => {
+    if (!message) return;
+
+    clearTimersAndHide();
 
     setToast({
       id: Date.now(),
       message,
       type,
+      durationMs,
     });
 
     timeoutRef.current = setTimeout(() => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
       setToast(null);
       setProgress(100);
       timeoutRef.current = null;
-    }, 5000);
-  }, []);
+    }, durationMs);
+  }, [clearTimersAndHide]);
 
   const hideToast = useCallback(() => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-    setToast(null);
-    setProgress(100);
-  }, []);
+    clearTimersAndHide();
+  }, [clearTimersAndHide]);
+
+  useEffect(() => {
+    clearTimersAndHide();
+  }, [location.pathname, clearTimersAndHide]);
 
   useEffect(() => {
     if (!toast) {
@@ -43,36 +62,42 @@ export function ToastProvider({ children }) {
       return;
     }
 
-    const duration = 5000;
+    const duration = toast.durationMs ?? DEFAULT_DURATION_MS;
     const start = Date.now();
 
-    const interval = setInterval(() => {
+    intervalRef.current = setInterval(() => {
       const elapsed = Date.now() - start;
       const remaining = Math.max(0, duration - elapsed);
       const pct = (remaining / duration) * 100;
       setProgress(pct);
-      if (remaining <= 0) {
-        clearInterval(interval);
+      if (remaining <= 0 && intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
     }, 50);
 
-    return () => clearInterval(interval);
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
   }, [toast]);
 
   const getToastClasses = () => {
     if (!toast) return '';
 
-    const base =
-      'relative overflow-hidden max-w-sm w-full rounded-lg shadow-lg px-4 py-3 text-sm flex items-start gap-2';
+    const glass =
+      'relative overflow-hidden max-w-sm w-full rounded-xl shadow-xl shadow-black/20 px-4 py-3 text-sm flex items-start gap-2 backdrop-blur-xl border border-white/10';
 
     if (toast.type === 'success') {
-      return `${base} bg-emerald-500/20 text-emerald-100`;
+      return `${glass} bg-emerald-500/25 text-emerald-100`;
     }
     if (toast.type === 'error') {
-      return `${base} bg-red-500/20 text-red-100`;
+      return `${glass} bg-red-500/25 text-red-100`;
     }
 
-    return `${base} bg-slate-800/20 text-slate-100`;
+    return `${glass} bg-slate-800/25 text-slate-100`;
   };
 
   const getBarClasses = () => {

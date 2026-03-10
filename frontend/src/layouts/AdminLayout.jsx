@@ -1,60 +1,62 @@
-import { Outlet, Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { useState } from 'react';
+import BottomNav from '../components/ui/BottomNav';
+import AdminUsersPage from '../pages/Admin/AdminUsersPage';
+import AdminDriversPage from '../pages/Admin/AdminDriversPage';
+import AdminVehiclesPage from '../pages/Admin/AdminVehiclesPage';
+import AdminReviewsPage from '../pages/Admin/AdminReviewsPage';
+import AdminRidesPage from '../pages/Admin/AdminRidesPage';
 
 const adminNavItems = [
-  { path: '/admin', label: 'Dashboard' },
-  { path: '/admin/users', label: 'Usuários' },
-  { path: '/admin/drivers', label: 'Motoristas' },
-  { path: '/admin/rides', label: 'Corridas' },
+  { id: 'users', label: 'Usuários' },
+  { id: 'drivers', label: 'Motoristas' },
+  { id: 'vehicles', label: 'Veículos' },
+  { id: 'reviews', label: 'Reviews' },
+  { id: 'rides', label: 'Corridas' },
 ];
 
 export default function AdminLayout() {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
-
-  const handleLogout = () => {
-    logout();
-    navigate('/');
-  };
+  const [activeTab, setActiveTab] = useState('users');
 
   return (
-    <div className="min-h-screen flex bg-gray-100">
-      <aside className="w-64 bg-white shadow-sm border-r flex flex-col">
-        <div className="p-4 border-b">
-          <Link to="/home" className="text-lg font-bold text-primary-600">
-            Carona FAM
-          </Link>
-          <p className="text-xs text-gray-500 mt-1">Painel Admin</p>
+    <div className="min-h-screen flex flex-col relative">
+      <main className="flex-1 pb-24 px-4 py-8 text-text-main overflow-x-hidden">
+        <div className="w-full max-w-4xl md:max-w-5xl xl:max-w-6xl mx-auto flex flex-col">
+          <header className="mb-4">
+            <h1 className="text-center text-xl mb-5 md:text-2xl font-semibold text-text-main">
+              Área Administrativa
+            </h1>
+          </header>
+
+          <nav className="flex gap-3 mb-4">
+            {adminNavItems.map((item) => {
+              const active = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setActiveTab(item.id)}
+                  className={`flex-1 h-[38px] px-3 rounded-[10px] text-xs md:text-sm border flex items-center justify-center transition-colors ${
+                    active
+                      ? 'bg-brand text-text-main border-brand/80'
+                      : 'border-border-muted text-text-muted hover:border-brand/60 hover:text-text-main'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              );
+            })}
+          </nav>
+
+          <div className="rounded-[10px] border-2 border-border-muted bg-surface-input/20 backdrop-blur-2xl px-4 py-5 md:px-6 md:py-6 shadow-2xl text-sm text-text-main">
+            {activeTab === 'users' && <AdminUsersPage />}
+            {activeTab === 'drivers' && <AdminDriversPage />}
+            {activeTab === 'vehicles' && <AdminVehiclesPage />}
+            {activeTab === 'reviews' && <AdminReviewsPage />}
+            {activeTab === 'rides' && <AdminRidesPage />}
+          </div>
         </div>
-        <nav className="flex-1 p-4 space-y-1">
-          {adminNavItems.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              className="block px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-100 hover:text-primary-600"
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-        <div className="p-4 border-t">
-          <p className="text-sm text-gray-600 truncate">{user?.email}</p>
-          <button
-            onClick={handleLogout}
-            className="mt-2 text-sm text-red-600 hover:text-red-700"
-          >
-            Sair
-          </button>
-        </div>
-      </aside>
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white shadow-sm px-6 py-4">
-          <h1 className="text-xl font-semibold text-gray-800">Área Administrativa</h1>
-        </header>
-        <main className="flex-1 overflow-auto p-6">
-          <Outlet />
-        </main>
-      </div>
+      </main>
+      <BottomNav />
     </div>
   );
 }

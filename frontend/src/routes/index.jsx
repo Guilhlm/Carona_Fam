@@ -9,11 +9,7 @@ import AuthForgotPasswordPage from "../pages/AuthForgotPasswordPage";
 import ProfilePage from "../pages/ProfilePage";
 import RideHistoryPage from "../pages/RideHistoryPage";
 import RideInProgressPage from "../pages/RideInProgressPage";
-import AdminDashboardPage from "../pages/Admin/AdminDashboardPage";
-import AdminUsersPage from "../pages/Admin/AdminUsersPage";
-import AdminDriversPage from "../pages/Admin/AdminDriversPage";
-import AdminRidesPage from "../pages/Admin/AdminRidesPage";
-import TesteMapa from "../pages/TesteMapa";
+import RideRequestPage from "../pages/RideRequestPage";
 
 function RequireAuth({ children }) {
   const { isAuthenticated, loading } = useAuth();
@@ -57,6 +53,14 @@ export default [
         ),
       },
       {
+        path: "rides/request",
+        element: (
+          <RequireAuth>
+            <RideRequestPage />
+          </RequireAuth>
+        ),
+      },
+      {
         path: "rides/history",
         element: (
           <RequireAuth>
@@ -81,18 +85,6 @@ export default [
         <AdminLayout />
       </RequireAdmin>
     ),
-    children: [
-      { index: true, element: <AdminDashboardPage /> },
-      { path: "users", element: <AdminUsersPage /> },
-      { path: "drivers", element: <AdminDriversPage /> },
-      { path: "rides", element: <AdminRidesPage /> },
-    ],
   },
-
-  {
-    path: "/teste-mapa",
-    element: <TesteMapa />,
-  },
-
   { path: "*", element: <Navigate to="/" replace /> },
 ];

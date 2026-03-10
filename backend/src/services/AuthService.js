@@ -121,8 +121,30 @@ async function resetPasswordWithEmailAndRa(email, ra, newPassword) {
   return { message: 'Senha redefinida com sucesso' };
 }
 
+async function changePassword(userId, newPassword) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!user) {
+    const err = new Error('Usuário não encontrado');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const passwordHash = await hashPassword(newPassword);
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { passwordHash },
+  });
+
+  return { message: 'Senha alterada com sucesso' };
+}
+
 module.exports = {
   register,
   login,
   resetPasswordWithEmailAndRa,
+  changePassword,
 };

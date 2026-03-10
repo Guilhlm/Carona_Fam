@@ -46,6 +46,7 @@ model User {
   role         UserRole @default(USER)
   isAdmin      Boolean  @default(false)
   isBlocked    Boolean  @default(false)
+  blockReason  String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -61,10 +62,12 @@ model Vehicle {
   driverId      String
   brand         String?
   model         String?
-  plate         String   @unique
+  plate         String?  @unique
   year          Int?
   capacityTotal Int
   photoUrl      String?
+  isDisabled    Boolean  @default(false)
+  disabledReason String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -99,6 +102,7 @@ model RidePassenger {
   passengerId String
   status      RidePassengerStatus @default(PENDING)
   requestedAt DateTime           @default(now())
+  finishedAt  DateTime?
 
   ride      Ride @relation(fields: [rideId], references: [id], onDelete: Cascade)
   passenger User @relation(fields: [passengerId], references: [id], onDelete: Cascade)
@@ -115,6 +119,8 @@ model Review {
   reviewedId String
   rating     Int
   comment    String?
+  isDisabled Boolean  @default(false)
+  disabledReason String?
   createdAt  DateTime @default(now())
 
   ride     Ride @relation(fields: [rideId], references: [id], onDelete: Cascade)
