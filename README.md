@@ -5,7 +5,7 @@ Aplicação fullstack inspirada na Uber para compartilhamento de caronas. Permit
 ## Stack
 
 - **Frontend**: React (JSX), Vite, TailwindCSS, React Router, Nominatim, Leaflet
-- **Backend**: Node.js, Express, Prisma ORM, Axios, OpenRouteService
+- **Backend**: Node.js, Express, Prisma, Axios, OpenRouteService
 - **Banco de dados**: PostgreSQL
 - **Infraestrutura**: Docker, Docker Compose
 
