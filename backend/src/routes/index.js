@@ -4,7 +4,7 @@ const usersRoutes = require("./users.routes");
 const driversRoutes = require("./drivers.routes");
 const ridesRoutes = require("./rides.routes");
 const adminRoutes = require("./admin.routes");
-const mapaRoutes = require("./mapa.routes");
+const coordinateRoutes = require("./coordinate.routes");
 
 const router = express.Router();
 
@@ -13,6 +13,6 @@ router.use("/users", usersRoutes);
 router.use("/drivers", driversRoutes);
 router.use("/rides", ridesRoutes);
 router.use("/admin", adminRoutes);
-router.use("/mapa", mapaRoutes);
+router.use("/coordinate", coordinateRoutes);
 
 module.exports = router;
