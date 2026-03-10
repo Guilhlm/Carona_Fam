@@ -1,7 +1,8 @@
 const axios = require("axios");
 
 async function calcularRotaCarro(coordenadas) {
-  const url = "https://api.openrouteservice.org/v2/directions/driving-car";
+  const url =
+    "https://api.openrouteservice.org/v2/directions/driving-car/geojson";
 
   const response = await axios.post(
     url,
