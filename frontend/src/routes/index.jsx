@@ -11,6 +11,8 @@ import RideHistoryPage from "../pages/RideHistoryPage";
 import RideInProgressPage from "../pages/RideInProgressPage";
 import RideRequestPage from "../pages/RideRequestPage";
 
+import MapTestPage from "../pages/Test/MapTest";
+
 function RequireAuth({ children }) {
   const { isAuthenticated, loading } = useAuth();
   if (loading) return <div className="p-8 text-center">Carregando...</div>;
@@ -77,6 +79,10 @@ export default [
         ),
       },
     ],
+  },
+  {
+    path: "/MapTest",
+    element: <MapTestPage />,
   },
   {
     path: "/admin",

@@ -15,12 +15,28 @@ export default function AddressSearch({ placeholder, onAddressSelected }) {
     const timer = setTimeout(async () => {
       setLoading(true);
       try {
-        // The search continues to prioritize the Americana region via viewbox
         const response = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=${search}&bounded=0&viewbox=-47.50,-22.80,-47.20,-22.60&limit=5`,
+          `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=${search}&bounded=0&viewbox=-47.50,-22.80,-47.20,-22.60&limit=10`,
         );
         const data = await response.json();
-        setSuggestions(data);
+
+        const uniqueAddresses = new Set();
+        const filteredData = data.filter((location) => {
+          const street =
+            location.address?.road || location.display_name.split(",")[0];
+          const neighborhood =
+            location.address?.neighbourhood || location.address?.suburb || "";
+
+          const uniqueKey = `${street}-${neighborhood}`;
+
+          if (uniqueAddresses.has(uniqueKey)) {
+            return false;
+          }
+          uniqueAddresses.add(uniqueKey);
+          return true;
+        });
+
+        setSuggestions(filteredData.slice(0, 5));
       } catch (error) {
         console.error("Error fetching address:", error);
       } finally {
@@ -31,12 +47,10 @@ export default function AddressSearch({ placeholder, onAddressSelected }) {
     return () => clearTimeout(timer);
   }, [search]);
 
-  // Function to format the address in a simplified way
   const formatAddress = (location) => {
     const ad = location.address;
     if (!ad) return location.display_name.split(",")[0];
 
-    // Tries to get the road name, if not available, gets the main name of the location
     const street =
       ad.road ||
       ad.pedestrian ||
@@ -51,7 +65,7 @@ export default function AddressSearch({ placeholder, onAddressSelected }) {
   const selectAddress = (location) => {
     const cleanAddress = formatAddress(location);
 
-    setSearch(cleanAddress); // Sets the clean text in the input
+    setSearch(cleanAddress);
     setSuggestions([]);
     setIsFocused(false);
 
@@ -59,7 +73,7 @@ export default function AddressSearch({ placeholder, onAddressSelected }) {
   };
 
   return (
-    <div style={{ position: "relative", width: "300px" }}>
+    <div style={{ position: "relative", width: "100%" }}>
       <input
         type="text"
         placeholder={placeholder}
