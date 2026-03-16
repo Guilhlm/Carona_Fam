@@ -1,6 +1,8 @@
-FROM node:20-alpine AS base
+FROM node:20-alpine3.17 AS base
 
 WORKDIR /app
+
+RUN apk add --no-cache openssl1.1-compat
 
 COPY package*.json ./
 COPY prisma ./prisma/
