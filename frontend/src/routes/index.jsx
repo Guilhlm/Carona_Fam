@@ -1,15 +1,17 @@
-import { Navigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import MainLayout from '../layouts/MainLayout';
-import AdminLayout from '../layouts/AdminLayout';
-import HomePage from '../pages/HomePage';
-import AuthLoginPage from '../pages/AuthLoginPage';
-import AuthRegisterPage from '../pages/AuthRegisterPage';
-import AuthForgotPasswordPage from '../pages/AuthForgotPasswordPage';
-import ProfilePage from '../pages/ProfilePage';
-import RideHistoryPage from '../pages/RideHistoryPage';
-import RideInProgressPage from '../pages/RideInProgressPage';
-import RideRequestPage from '../pages/RideRequestPage';
+import { Navigate } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
+import MainLayout from "../layouts/MainLayout";
+import AdminLayout from "../layouts/AdminLayout";
+import HomePage from "../pages/HomePage";
+import AuthLoginPage from "../pages/AuthLoginPage";
+import AuthRegisterPage from "../pages/AuthRegisterPage";
+import AuthForgotPasswordPage from "../pages/AuthForgotPasswordPage";
+import ProfilePage from "../pages/ProfilePage";
+import RideHistoryPage from "../pages/RideHistoryPage";
+import RideInProgressPage from "../pages/RideInProgressPage";
+import RideRequestPage from "../pages/RideRequestPage";
+
+import MapTestPage from "../pages/Test/MapTest";
 
 function RequireAuth({ children }) {
   const { isAuthenticated, loading } = useAuth();
@@ -28,24 +30,24 @@ function RequireAdmin({ children }) {
 
 export default [
   {
-    path: '/',
+    path: "/",
     element: <AuthLoginPage />,
   },
   {
-    path: '/register',
+    path: "/register",
     element: <AuthRegisterPage />,
   },
   {
-    path: '/forgot-password',
+    path: "/forgot-password",
     element: <AuthForgotPasswordPage />,
   },
   {
-    path: '/home',
+    path: "/home",
     element: <MainLayout />,
     children: [
       { index: true, element: <HomePage /> },
       {
-        path: 'profile',
+        path: "profile",
         element: (
           <RequireAuth>
             <ProfilePage />
@@ -53,7 +55,7 @@ export default [
         ),
       },
       {
-        path: 'rides/request',
+        path: "rides/request",
         element: (
           <RequireAuth>
             <RideRequestPage />
@@ -61,7 +63,7 @@ export default [
         ),
       },
       {
-        path: 'rides/history',
+        path: "rides/history",
         element: (
           <RequireAuth>
             <RideHistoryPage />
@@ -69,7 +71,7 @@ export default [
         ),
       },
       {
-        path: 'ride/in-progress',
+        path: "ride/in-progress",
         element: (
           <RequireAuth>
             <RideInProgressPage />
@@ -79,12 +81,16 @@ export default [
     ],
   },
   {
-    path: '/admin',
+    path: "/MapTest",
+    element: <MapTestPage />,
+  },
+  {
+    path: "/admin",
     element: (
       <RequireAdmin>
         <AdminLayout />
       </RequireAdmin>
     ),
   },
-  { path: '*', element: <Navigate to="/" replace /> },
+  { path: "*", element: <Navigate to="/" replace /> },
 ];
