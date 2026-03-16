@@ -4,8 +4,8 @@ Aplicação fullstack inspirada na Uber para compartilhamento de caronas. Permit
 
 ## Stack
 
-- **Frontend**: React (JSX), Vite, TailwindCSS, React Router
-- **Backend**: Node.js, Express, Prisma ORM, Axios
+- **Frontend**: React (JSX), Vite, TailwindCSS, React Router, Nominatim, Leaflet
+- **Backend**: Node.js, Express, Prisma, Axios, OpenRouteService
 - **Banco de dados**: PostgreSQL
 - **Infraestrutura**: Docker, Docker Compose
 
@@ -192,7 +192,7 @@ O frontend está configurado para enviar todas as requisições `/api/...` para 
 | GET | `/api/admin/drivers` | Lista motoristas (admin) |
 | GET | `/api/admin/rides` | Lista corridas (admin) |
 | PATCH | `/api/admin/users/:id/block` | Bloquear/desbloquear (admin) |
-| POST | `/api/mapa/rota` | Calcula distância, tempo e gera link do GPS (OpenRouteService) |
+| POST | `/api/coordinate/route` | Calcula distância, tempo e gera rota (OpenRouteService) |
 
 ## Segurança
 
