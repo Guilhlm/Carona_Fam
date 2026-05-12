@@ -1,25 +1,28 @@
-const UserService = require('../services/UserService');
+const userService = require('../services/user');
 const { success } = require('../utils/response');
 
-async function getMe(req, res, next) {
-  try {
-    const user = await UserService.getMe(req.user.id);
-    return success(res, user);
-  } catch (err) {
-    next(err);
+class UserController {
+  constructor(service) {
+    this.service = service;
   }
+
+  getMe = async (req, res, next) => {
+    try {
+      const user = await this.service.getMe(req.user.id);
+      return success(res, user);
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  updateMe = async (req, res, next) => {
+    try {
+      const user = await this.service.updateMe(req.user.id, req.body);
+      return success(res, user);
+    } catch (err) {
+      next(err);
+    }
+  };
 }
 
-async function updateMe(req, res, next) {
-  try {
-    const user = await UserService.updateMe(req.user.id, req.body);
-    return success(res, user);
-  } catch (err) {
-    next(err);
-  }
-}
-
-module.exports = {
-  getMe,
-  updateMe,
-};
+module.exports = new UserController(userService);

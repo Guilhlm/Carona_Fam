@@ -1,47 +1,53 @@
+const { prisma } = require('../config/database');
+const AuthRepository = require('../repositories/AuthRepository');
 const { verifyToken } = require('../utils/jwt');
 const { error } = require('../utils/response');
-const { prisma } = require('../config/database');
 
-async function authMiddleware(req, res, next) {
-  const authHeader = req.headers.authorization;
-
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return error(res, 'Token de autenticação não fornecido', 401);
+class AuthMiddleware {
+  constructor({ authRepository, verifyTokenFn, errorResponse }) {
+    this.authRepository = authRepository;
+    this.verifyTokenFn = verifyTokenFn;
+    this.errorResponse = errorResponse;
   }
 
-  const token = authHeader.substring(7);
-  const decoded = verifyToken(token);
+  handle = async (req, res, next) => {
+    const authHeader = req.headers.authorization;
 
-  if (!decoded) {
-    return error(res, 'Token inválido ou expirado', 401);
-  }
-
-  try {
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.sub },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        isBlocked: true,
-        isAdmin: true,
-      },
-    });
-
-    if (!user) {
-      return error(res, 'Usuário não encontrado', 401);
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return this.errorResponse(res, 'Token de autenticação não fornecido', 401);
     }
 
-    if (user.isBlocked) {
-      return error(res, 'Usuário bloqueado', 403);
+    const token = authHeader.substring(7);
+    const decoded = this.verifyTokenFn(token);
+
+    if (!decoded) {
+      return this.errorResponse(res, 'Token inválido ou expirado', 401);
     }
 
-    req.user = user;
-    next();
-  } catch (err) {
-    next(err);
-  }
+    try {
+      const user = await this.authRepository.findAuthUserById(decoded.sub);
+
+      if (!user) {
+        return this.errorResponse(res, 'Usuário não encontrado', 401);
+      }
+
+      if (user.isBlocked) {
+        return this.errorResponse(res, 'Usuário bloqueado', 403);
+      }
+
+      req.user = user;
+      next();
+    } catch (err) {
+      next(err);
+    }
+  };
 }
 
-module.exports = authMiddleware;
+const authRepository = new AuthRepository(prisma);
+const authMiddleware = new AuthMiddleware({
+  authRepository,
+  verifyTokenFn: verifyToken,
+  errorResponse: error,
+});
+
+module.exports = authMiddleware.handle;

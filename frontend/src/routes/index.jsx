@@ -10,6 +10,7 @@ import ProfilePage from "../pages/ProfilePage";
 import RideHistoryPage from "../pages/RideHistoryPage";
 import RideInProgressPage from "../pages/RideInProgressPage";
 import RideRequestPage from "../pages/RideRequestPage";
+import AvailableRidesPage from "../pages/AvailableRidesPage";
 
 import MapTestPage from "../pages/Test/MapTest";
 
@@ -59,6 +60,14 @@ export default [
         element: (
           <RequireAuth>
             <RideRequestPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: "rides/available",
+        element: (
+          <RequireAuth>
+            <AvailableRidesPage />
           </RequireAuth>
         ),
       },

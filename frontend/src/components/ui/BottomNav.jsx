@@ -18,6 +18,9 @@ function isItemActive(pathname, item) {
       pathname.startsWith('/home/ride/')
     );
   }
+  if (item.path === '/home/rides/request') {
+    return pathname.startsWith('/home/rides/request') || pathname.startsWith('/home/rides/available');
+  }
   if (item.path === '/admin') {
     return pathname.startsWith('/admin');
   }
