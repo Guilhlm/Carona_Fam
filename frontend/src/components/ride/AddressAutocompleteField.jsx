@@ -68,7 +68,7 @@ export default function AddressAutocompleteField({
   };
 
   return (
-    <div className="relative z-30" ref={wrapRef}>
+    <div className={`relative ${open ? 'z-50' : 'z-0'}`} ref={wrapRef}>
       <div className="relative">
         {icon && (
           <span className="pointer-events-none absolute left-3 top-1/2 z-[1] -translate-y-1/2 text-text-main/55">

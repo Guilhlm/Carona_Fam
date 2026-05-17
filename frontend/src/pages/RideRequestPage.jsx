@@ -228,8 +228,8 @@ export default function RideRequestPage() {
     'w-full rounded-xl border border-border-muted bg-surface-input/90 backdrop-blur-md pl-10 pr-10 py-3 text-sm text-text-main placeholder:text-text-main/45 outline-none focus:border-brand';
 
   return (
-    <div className="relative min-h-[100dvh] w-full max-w-none overflow-hidden">
-      <div ref={mapContainerRef} className="fixed inset-0 z-0 h-[100dvh] w-full max-w-none">
+    <div className="fixed inset-0 z-0 flex flex-col overflow-hidden">
+      <div ref={mapContainerRef} className="absolute inset-0 z-0">
         <div className="absolute inset-0 size-full pointer-events-auto">
           <RideRequestMapLayer
             originLatLng={mapOrigin}
@@ -246,7 +246,7 @@ export default function RideRequestPage() {
         />
       </div>
 
-      <div className="relative z-10 flex min-h-[100dvh] flex-col px-4 pointer-events-none [&_button]:pointer-events-auto [&_input]:pointer-events-auto [&_select]:pointer-events-auto [&_label]:pointer-events-auto [&_ul]:pointer-events-auto [&_a]:pointer-events-auto">
+      <div className="absolute inset-0 z-10 flex min-h-0 flex-col px-4 pointer-events-none [&_button]:pointer-events-auto [&_input]:pointer-events-auto [&_select]:pointer-events-auto [&_label]:pointer-events-auto [&_ul]:pointer-events-auto [&_a]:pointer-events-auto">
         <div ref={topPanelEndRef} className="nav-shell shrink-0 pt-5 pb-2">
         <div className="space-y-3">
           <AddressAutocompleteField
