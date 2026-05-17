@@ -32,16 +32,17 @@ export default function ScheduleModal({
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[60]">
       <button
         type="button"
         aria-label="Fechar modal"
         className="absolute inset-0 bg-black/70"
         onClick={onClose}
       />
+      <div className="fixed inset-x-0 top-0 bottom-24 flex items-center justify-center p-4 pointer-events-none">
       <form
         onSubmit={onConfirm}
-        className="relative w-full max-w-sm max-h-[90vh] overflow-y-auto rounded-2xl border border-border-muted bg-surface-input/95 backdrop-blur-xl p-5 space-y-4"
+        className="pointer-events-auto relative w-full max-w-sm max-h-full overflow-y-auto rounded-2xl border border-border-muted bg-surface-input/95 backdrop-blur-xl p-5 space-y-4"
       >
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold">Agendar Corrida</h2>
@@ -192,6 +193,7 @@ export default function ScheduleModal({
           Confirmar agendamento
         </button>
       </form>
+      </div>
     </div>
   );
 }

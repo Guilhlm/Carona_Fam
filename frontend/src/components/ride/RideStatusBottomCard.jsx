@@ -37,6 +37,7 @@ export default function RideStatusBottomCard({
   ride,
   role,
   passengerMode = 'requester',
+  embedded = false,
   onArrived,
   onStart,
   onComplete,
@@ -63,8 +64,8 @@ export default function RideStatusBottomCard({
         : 'Você é o passageiro';
 
   return (
-    <div className="fixed inset-x-0 bottom-24 z-30 px-4">
-      <div className="mx-auto max-w-md rounded-2xl border border-border-muted bg-surface-input/95 backdrop-blur-md shadow-2xl p-4">
+    <div className={embedded ? 'w-full' : 'fixed inset-x-0 bottom-24 z-30 px-4'}>
+      <div className="w-full rounded-2xl border border-border-muted bg-surface-input/95 backdrop-blur-md shadow-2xl p-4 pointer-events-auto">
         <div className="mb-3">
           <p className="text-[10px] uppercase tracking-wide text-text-main/55">
             {roleLabel}

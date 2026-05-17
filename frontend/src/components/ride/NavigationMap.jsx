@@ -8,9 +8,14 @@ import {
   useMap,
 } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
+import {
+  DEFAULT_MAP_VIEWPORT_PADDING,
+  toLeafletFitPadding,
+} from '../../utils/mapViewport';
 
-function FitBounds({ bounds }) {
+function FitBounds({ bounds, viewportPadding }) {
   const map = useMap();
+  const resolvedPadding = viewportPadding ?? DEFAULT_MAP_VIEWPORT_PADDING;
   useEffect(() => {
     if (!bounds) return;
     map.fitBounds(
@@ -18,9 +23,20 @@ function FitBounds({ bounds }) {
         [bounds[1], bounds[0]],
         [bounds[3], bounds[2]],
       ],
-      { padding: [40, 40] }
+      { ...toLeafletFitPadding(resolvedPadding), maxZoom: 16 }
     );
-  }, [bounds, map]);
+  }, [bounds, map, resolvedPadding]);
+  return null;
+}
+
+function InvalidateOnPaddingChange({ viewportPadding }) {
+  const map = useMap();
+  useEffect(() => {
+    const animationFrameId = requestAnimationFrame(() => {
+      map.invalidateSize({ pan: false });
+    });
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [map, viewportPadding]);
   return null;
 }
 
@@ -42,11 +58,30 @@ function FollowUser({ position, follow }) {
 function InvalidateOnMount() {
   const map = useMap();
   useEffect(() => {
-    const animationFrameId = requestAnimationFrame(() => map.invalidateSize());
-    return () => cancelAnimationFrame(animationFrameId);
+    const invalidate = () => {
+      requestAnimationFrame(() => map.invalidateSize({ pan: false }));
+    };
+    invalidate();
+    const timeoutId = window.setTimeout(invalidate, 150);
+    window.addEventListener('resize', invalidate);
+    return () => {
+      window.clearTimeout(timeoutId);
+      window.removeEventListener('resize', invalidate);
+    };
   }, [map]);
   return null;
 }
+
+function InvalidateOnRoute({ routeData, phase }) {
+  const map = useMap();
+  useEffect(() => {
+    const animationFrameId = requestAnimationFrame(() => map.invalidateSize());
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [map, routeData, phase]);
+  return null;
+}
+
+/** @typedef {'none' | 'primary' | 'secondary'} RouteDisplayMode */
 
 export default function NavigationMap({
   className = '',
@@ -54,10 +89,12 @@ export default function NavigationMap({
   destination,
   stops = [],
   routeData,
+  routeDisplay = 'primary',
   follow = false,
   phase = 'full',
   trackUserPosition = true,
   userPosition: externalUserPosition,
+  viewportPadding,
 }) {
   const [internalUserPosition, setInternalUserPosition] = useState(null);
   const watchIdRef = useRef(null);
@@ -104,13 +141,33 @@ export default function NavigationMap({
 
   const center = userPosition || originLatLng || destinationLatLng || [-22.9056, -47.0608];
 
+  const showPrimaryRoute = routeDisplay === 'primary' && routeData?.geometry;
+  const showSecondaryRoute =
+    routeDisplay === 'secondary' && originLatLng && (visibleDestination || isPickupPhase);
+  const showFallbackPolyline =
+    routeDisplay === 'primary' &&
+    !routeData?.geometry &&
+    originLatLng &&
+    (visibleDestination || isPickupPhase);
+
+  const mapClassName = [
+    'h-full w-full min-h-0 min-w-0',
+    '[&_.leaflet-container]:!h-full [&_.leaflet-container]:!w-full',
+    '[&_.leaflet-container]:touch-none [&_.leaflet-container]:cursor-grab',
+    '[&_.leaflet-grab]:cursor-grabbing',
+    className,
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   return (
     <MapContainer
       center={center}
       zoom={15}
       minZoom={3}
       maxZoom={18}
-      className={`h-full w-full ${className}`.trim()}
+      className={mapClassName}
+      style={{ height: '100%', width: '100%', minHeight: '100%', minWidth: '100%' }}
       attributionControl={false}
       zoomControl={false}
       scrollWheelZoom
@@ -124,8 +181,10 @@ export default function NavigationMap({
         maxNativeZoom={18}
       />
       <InvalidateOnMount />
+      <InvalidateOnRoute routeData={routeData} phase={phase} />
+      <InvalidateOnPaddingChange viewportPadding={viewportPadding} />
 
-      {routeData?.geometry && (
+      {showPrimaryRoute && (
         <GeoJSON
           key={JSON.stringify(routeData.geometry.coordinates?.[0] ?? '')}
           data={routeData.geometry}
@@ -133,7 +192,20 @@ export default function NavigationMap({
         />
       )}
 
-      {!routeData && originLatLng && (visibleDestination || isPickupPhase) && (
+      {showSecondaryRoute && (
+        <Polyline
+          positions={
+            isPickupPhase
+              ? userPosition
+                ? [userPosition, originLatLng]
+                : [originLatLng]
+              : [originLatLng, ...visibleStops, visibleDestination].filter(Boolean)
+          }
+          pathOptions={{ color: '#5F5FAA', weight: 3, dashArray: '10 10', opacity: 0.4 }}
+        />
+      )}
+
+      {showFallbackPolyline && (
         <Polyline
           positions={
             isPickupPhase
@@ -184,7 +256,9 @@ export default function NavigationMap({
         </>
       )}
 
-      {!follow && routeData?.bounds && <FitBounds bounds={routeData.bounds} />}
+      {!follow && showPrimaryRoute && routeData?.bounds && (
+        <FitBounds bounds={routeData.bounds} viewportPadding={viewportPadding} />
+      )}
       <FollowUser position={userPosition} follow={follow} />
     </MapContainer>
   );

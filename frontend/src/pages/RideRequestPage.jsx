@@ -40,12 +40,12 @@ export default function RideRequestPage() {
   const [locatingMe, setLocatingMe] = useState(false);
   const mapFitSuppressedRef = useRef(false);
   const mapContainerRef = useRef(null);
-  const acceptCaronaEndRef = useRef(null);
-  const requestTripStartRef = useRef(null);
+  const topPanelEndRef = useRef(null);
+  const bottomPanelStartRef = useRef(null);
   const mapViewportPadding = useMapViewportPadding(
     mapContainerRef,
-    acceptCaronaEndRef,
-    requestTripStartRef
+    topPanelEndRef,
+    bottomPanelStartRef
   );
 
   const passengerSelectOptions = useMemo(
@@ -228,9 +228,9 @@ export default function RideRequestPage() {
     'w-full rounded-xl border border-border-muted bg-surface-input/90 backdrop-blur-md pl-10 pr-10 py-3 text-sm text-text-main placeholder:text-text-main/45 outline-none focus:border-brand';
 
   return (
-    <div className="relative min-h-[calc(100dvh-6rem)] w-full">
-      <div ref={mapContainerRef} className="fixed inset-x-0 top-0 bottom-24 z-0">
-        <div className="absolute inset-0 h-full w-full pointer-events-auto">
+    <div className="relative min-h-[100dvh] w-full max-w-none overflow-hidden">
+      <div ref={mapContainerRef} className="fixed inset-0 z-0 h-[100dvh] w-full max-w-none">
+        <div className="absolute inset-0 size-full pointer-events-auto">
           <RideRequestMapLayer
             originLatLng={mapOrigin}
             stopLatLngs={stopLatLngs}
@@ -246,7 +246,8 @@ export default function RideRequestPage() {
         />
       </div>
 
-      <div className="relative z-10 flex min-h-[calc(100dvh-6rem)] flex-col px-4 pt-5 pb-6 pointer-events-none [&_button]:pointer-events-auto [&_input]:pointer-events-auto [&_select]:pointer-events-auto [&_label]:pointer-events-auto [&_ul]:pointer-events-auto [&_a]:pointer-events-auto">
+      <div className="relative z-10 flex min-h-[100dvh] flex-col px-4 pointer-events-none [&_button]:pointer-events-auto [&_input]:pointer-events-auto [&_select]:pointer-events-auto [&_label]:pointer-events-auto [&_ul]:pointer-events-auto [&_a]:pointer-events-auto">
+        <div ref={topPanelEndRef} className="nav-shell shrink-0 pt-5 pb-2">
         <div className="space-y-3">
           <AddressAutocompleteField
             value={originText}
@@ -320,10 +321,7 @@ export default function RideRequestPage() {
             </button>
           </div>
 
-          <div
-            ref={acceptCaronaEndRef}
-            className="rounded-xl border border-border-muted bg-surface-input/90 px-3 py-3 space-y-2.5"
-          >
+          <div className="rounded-xl border border-border-muted bg-surface-input/90 px-3 py-3 space-y-2.5">
             <div className="flex gap-3 items-start">
               <div
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-brand/40 bg-brand/15 text-brand"
@@ -351,8 +349,10 @@ export default function RideRequestPage() {
 
         </div>
 
-        <div className="mt-auto flex flex-col items-stretch gap-5 pt-8">
-          <div className="pointer-events-auto flex flex-col items-end gap-2 self-end">
+        </div>
+
+        <div className="relative min-h-0 flex-1">
+          <div className="pointer-events-auto absolute bottom-0 right-0 flex flex-col items-end gap-2">
             <div className="flex flex-col overflow-hidden rounded-xl border border-border-muted bg-surface-input/95 shadow-lg backdrop-blur-md">
               <button
                 type="button"
@@ -382,9 +382,10 @@ export default function RideRequestPage() {
               <FiCrosshair className={`h-5 w-5 ${locatingMe ? 'animate-pulse' : ''}`} />
             </button>
           </div>
+        </div>
 
+        <div ref={bottomPanelStartRef} className="nav-shell shrink-0 pb-24 pt-2">
           <button
-            ref={requestTripStartRef}
             type="button"
             disabled={submitting}
             onClick={async () => {

@@ -7,3 +7,17 @@
     @apply bg-gray-50 text-gray-900 antialiased;
   }
 }
+
+/* Mesma largura útil da BottomNav (px-4 + max-w-4xl) */
+@layer components {
+  .nav-shell {
+    @apply w-full max-w-4xl mx-auto;
+  }
+}
+
+/* Leaflet: preenche o container pai em telas de corrida */
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  font-family: inherit;
+}

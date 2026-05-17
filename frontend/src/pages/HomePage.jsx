@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FiCalendar, FiMap, FiSearch, FiTruck, FiUsers } from 'react-icons/fi';
 import AddressAutocompleteField from '../components/ride/AddressAutocompleteField';
@@ -10,11 +10,13 @@ import ActiveRideBanner from '../components/ride/ActiveRideBanner';
 import JoinedCaronaRidesList from '../components/JoinedCaronaRidesList';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
+import { useActiveRide } from '../hooks/useActiveRide';
 import { useSchedule } from '../hooks/useSchedule';
 import * as rideService from '../services/rideService';
 import { ADDRESS_OUT_OF_RADIUS_MESSAGE } from '../utils/campinasGeo';
 import * as scheduledRideService from '../services/scheduledRideService';
 import { isOpenScheduledRide } from '../utils/scheduledRide';
+import { filterActiveJoinedCaronas, filterHistoryRides } from '../utils/rideNavigation';
 
 const destinationInputClass =
   'w-full rounded-xl border border-border-muted bg-surface-input/90 backdrop-blur-md pl-10 pr-10 py-3 text-sm text-text-main placeholder:text-text-main/45 outline-none focus:border-brand';
@@ -22,8 +24,20 @@ const destinationInputClass =
 export default function HomePage() {
   const { isAuthenticated, user } = useAuth();
   const { showToast } = useToast();
+  const { activeRide } = useActiveRide();
   const navigate = useNavigate();
   const isDriver = user?.role === 'DRIVER';
+
+  const refreshJoinedCaronas = useCallback(() => {
+    if (!isAuthenticated) {
+      setJoinedCaronaRides([]);
+      return;
+    }
+    scheduledRideService
+      .listJoinedScheduledRides()
+      .then((joined) => setJoinedCaronaRides(Array.isArray(joined) ? joined : []))
+      .catch(() => setJoinedCaronaRides([]));
+  }, [isAuthenticated]);
 
   const [mode, setMode] = useState('SEARCH');
   const [query, setQuery] = useState('');
@@ -81,6 +95,22 @@ export default function HomePage() {
   }, [isAuthenticated]);
 
   useEffect(() => {
+    refreshJoinedCaronas();
+  }, [refreshJoinedCaronas, activeRide?.id, activeRide?.status]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return undefined;
+    const onFocus = () => refreshJoinedCaronas();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [isAuthenticated, refreshJoinedCaronas]);
+
+  const activeJoinedCaronas = useMemo(
+    () => filterActiveJoinedCaronas(joinedCaronaRides),
+    [joinedCaronaRides]
+  );
+
+  useEffect(() => {
     if (!isAuthenticated) {
       setRides([]);
       setRidesLoading(false);
@@ -110,7 +140,7 @@ export default function HomePage() {
   }, [isAuthenticated]);
 
   const previousTrips = useMemo(() => {
-    return rides.slice(0, 5).map((ride, index) => {
+    return filterHistoryRides(rides).slice(0, 5).map((ride, index) => {
       const destination = ride.destination || ride.origin || 'Endereço não informado';
       const subtitle = ride.origin && ride.destination ? `${ride.origin} -> ${ride.destination}` : destination;
       return {
@@ -196,9 +226,7 @@ export default function HomePage() {
       <ActiveRideBanner />
 
       {mode !== 'DRIVE' && (
-        <JoinedCaronaRidesList
-          rides={joinedCaronaRides.filter((r) => r.status === 'REQUESTED' && r.rideId)}
-        />
+        <JoinedCaronaRidesList rides={activeJoinedCaronas} />
       )}
 
       <section className="mb-5">

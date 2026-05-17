@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import * as rideService from '../services/rideService';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
+import { filterHistoryRides } from '../utils/rideNavigation';
 
 const statusLabels = {
   WAITING_DRIVER: 'Aguardando motorista',
@@ -28,7 +29,7 @@ export default function RideHistoryPage() {
   useEffect(() => {
     rideService
       .getRideHistory()
-      .then((rides) => setRides(Array.isArray(rides) ? rides : []))
+      .then((rides) => setRides(filterHistoryRides(rides)))
       .catch(() => setRides([]))
       .finally(() => setLoading(false));
   }, []);

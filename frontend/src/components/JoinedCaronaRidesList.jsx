@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { FiCalendar, FiNavigation } from 'react-icons/fi';
+import { isActiveRideStatus } from '../utils/rideNavigation';
 
 function trackPath(scheduled) {
   const rideId = scheduled.rideId || scheduled.ride?.id;
@@ -22,7 +23,10 @@ export default function JoinedCaronaRidesList({ rides, title = 'Suas caronas' })
       <div className="space-y-3">
         {items.map((ride) => {
           const path = trackPath(ride);
-          const inRide = ride.status === 'REQUESTED' && path;
+          const inRide =
+            ride.status === 'REQUESTED' &&
+            path &&
+            isActiveRideStatus(ride.ride?.status);
 
           return (
             <div

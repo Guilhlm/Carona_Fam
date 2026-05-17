@@ -55,7 +55,10 @@ class RideRepository {
       : { OR: [{ requesterId: userId }, { passengers: { some: { passengerId: userId } } }] };
 
     return this.prisma.ride.findMany({
-      where: whereClause,
+      where: {
+        ...whereClause,
+        status: { in: ['COMPLETED', 'CANCELLED'] },
+      },
       include: RideRepository.RIDE_CARD_INCLUDE,
       orderBy: { requestedAt: 'desc' },
       take: 50,

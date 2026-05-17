@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 const REASONS_BY_ROLE = {
   PASSENGER: [
@@ -27,16 +28,23 @@ export default function CancelReasonModal({ open, role = 'PASSENGER', onClose, o
     }
   }, [open, presets]);
 
-  if (!open) return null;
-
   const isCustom = selected === '__other__';
   const reason = isCustom ? custom.trim() : selected;
   const disabled = loading || !reason;
 
-  return (
-    <div className="fixed inset-0 z-[2000] flex items-end justify-center bg-black/60 sm:items-center">
-      <div className="w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl bg-surface-input border border-border-muted p-5 text-text-main">
-        <h2 className="text-base font-semibold mb-1">Cancelar corrida</h2>
+  if (!open) return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[2000] flex items-end justify-center bg-black/60 px-4 pb-24 sm:items-center sm:pb-0"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="cancel-reason-title"
+    >
+      <div className="nav-shell w-full sm:rounded-2xl rounded-t-2xl bg-surface-input border border-border-muted p-5 text-text-main">
+        <h2 id="cancel-reason-title" className="text-base font-semibold mb-1">
+          Cancelar corrida
+        </h2>
         <p className="text-xs text-text-main/70 mb-4">
           Por favor, selecione o motivo do cancelamento.
         </p>
@@ -104,12 +112,13 @@ export default function CancelReasonModal({ open, role = 'PASSENGER', onClose, o
             type="button"
             onClick={() => onConfirm(reason)}
             disabled={disabled}
-            className="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+            className="flex-1 rounded-xl border border-red-500/60 bg-red-500/15 py-2.5 text-sm font-semibold text-red-300 hover:bg-red-500/25 disabled:opacity-50"
           >
             {loading ? 'Cancelando...' : 'Confirmar cancelamento'}
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

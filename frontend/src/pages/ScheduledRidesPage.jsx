@@ -17,6 +17,7 @@ import * as scheduledRideService from '../services/scheduledRideService';
 import JoinCaronaModal from '../components/ride/JoinCaronaModal';
 import JoinedCaronaRidesList from '../components/JoinedCaronaRidesList';
 import { isOpenScheduledRide } from '../utils/scheduledRide';
+import { filterActiveJoinedCaronas } from '../utils/rideNavigation';
 
 function RideRow({
   ride,
@@ -286,7 +287,7 @@ export default function ScheduledRidesPage() {
           )}
 
           <JoinedCaronaRidesList
-            rides={joined.filter((r) => r.status === 'REQUESTED' && r.rideId)}
+            rides={filterActiveJoinedCaronas(joined)}
             title="Caronas em andamento"
           />
 

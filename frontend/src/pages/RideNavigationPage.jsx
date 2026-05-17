@@ -2,13 +2,18 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { FiArrowLeft, FiCrosshair, FiExternalLink } from 'react-icons/fi';
 import NavigationMap from '../components/ride/NavigationMap';
+import TemporaryDismissCard from '../components/ride/TemporaryDismissCard';
 import * as rideService from '../services/rideService';
 import { useRideStream } from '../hooks/useRideStream';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { buildGoogleMapsNavUrl, fetchOsrmRoute } from '../utils/routeFetcher';
+import {
+  PICKUP_RIDE_STATUSES,
+  buildPickupRouteCoords,
+  resolveDriverPickupTarget,
+} from '../utils/rideNavigation';
 
-const PICKUP_STATUSES = ['DRIVER_ACCEPTED', 'DRIVER_ARRIVING'];
 
 function decimalToNumber(value) {
   if (value === null || value === undefined) return null;
@@ -51,7 +56,7 @@ export default function RideNavigationPage() {
 
   const phase = useMemo(() => {
     if (!ride) return 'full';
-    if (role === 'DRIVER' && PICKUP_STATUSES.includes(ride.status)) return 'pickup';
+    if (role === 'DRIVER' && PICKUP_RIDE_STATUSES.includes(ride.status)) return 'pickup';
     return 'trip';
   }, [ride, role]);
 
@@ -95,16 +100,19 @@ export default function RideNavigationPage() {
       .filter((s) => s.lat != null && s.lng != null);
 
     if (phase === 'pickup') {
-      const coords = driverPosition
-        ? [[driverPosition[1], driverPosition[0]], o]
-        : [o];
+      const nearestPickup = resolveDriverPickupTarget(driverPosition, o, ss);
+      const pickupTarget = nearestPickup?.lngLat || o;
+      const pickupLabel = nearestPickup?.label || ride.origin;
       return {
-        originLngLat: o,
+        originLngLat: pickupTarget,
         destinationLngLat: d,
         stopsLatLng: ss,
         mapStops: [],
-        routeCoords: coords,
-        nextLabel: `Buscar passageiro em ${ride.origin}`,
+        routeCoords: buildPickupRouteCoords(driverPosition, pickupTarget),
+        nextLabel:
+          pickupLabel === 'origin'
+            ? `Buscar passageiro em ${ride.origin}`
+            : `Buscar carona em ${pickupLabel}`,
       };
     }
 
@@ -167,9 +175,10 @@ export default function RideNavigationPage() {
         )}
       </header>
 
-      <div className="relative z-[1] min-h-0 flex-1">
+      <div className="relative z-[1] min-h-0 min-w-0 flex-1 w-full">
+        <div className="absolute inset-0 size-full">
         <NavigationMap
-          className="absolute inset-0 h-full w-full"
+          className="size-full"
           origin={originLngLat}
           destination={destinationLngLat}
           stops={mapStops}
@@ -179,9 +188,10 @@ export default function RideNavigationPage() {
           userPosition={driverPosition}
           trackUserPosition={false}
         />
+        </div>
       </div>
 
-      <footer className="relative z-[2] shrink-0 space-y-2 border-t border-border-muted/50 bg-black/90 px-4 py-3 backdrop-blur-md">
+      <footer className="relative z-[2] shrink-0 w-full space-y-2 border-t border-border-muted/50 bg-black/90 px-4 py-3 backdrop-blur-md">
         <button
           type="button"
           onClick={() => setFollow((v) => !v)}
@@ -190,6 +200,7 @@ export default function RideNavigationPage() {
           <FiCrosshair className="h-4 w-4" />
           {follow ? 'Seguindo sua posição' : 'Tocar para seguir'}
         </button>
+        <TemporaryDismissCard>
         <div className="rounded-xl border border-border-muted bg-surface-input/95 px-4 py-3 text-xs text-text-main">
           <p className="text-[10px] uppercase tracking-wide text-text-main/55 mb-1">Próximo destino</p>
           <p className="font-semibold truncate">{nextLabel}</p>
@@ -215,6 +226,7 @@ export default function RideNavigationPage() {
             <FiExternalLink className="h-3 w-3" /> Abrir no Google Maps
           </button>
         </div>
+        </TemporaryDismissCard>
       </footer>
     </div>
   );
