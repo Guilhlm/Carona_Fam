@@ -1,11 +1,19 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FiMail, FiLock, FiEye, FiEyeOff, FiUser, FiInfo } from 'react-icons/fi';
+import { FiMail, FiLock, FiEye, FiEyeOff, FiUser } from 'react-icons/fi';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import AuthInput from '../components/ui/AuthInput';
 import Logo from '../assets/images/Logo.png';
 import { resetPassword } from '../services/authService';
+import {
+  MIN_PASSWORD_LENGTH,
+  isStrongPassword,
+  isValidEmail,
+  isValidRa,
+  normalizeDigits,
+  normalizeEmail,
+} from '../utils/validation';
 
 export default function AuthForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -24,17 +32,37 @@ export default function AuthForgotPasswordPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const normalizedEmail = normalizeEmail(email);
+    const normalizedRa = normalizeDigits(ra, 20);
 
-    if (!email || !ra || !newPassword) {
+    if (!normalizedEmail || !normalizedRa || !newPassword) {
       showToast('Preencha todos os campos para redefinir sua senha', 'error');
+      return;
+    }
+
+    if (!isValidEmail(normalizedEmail)) {
+      showToast('Informe um e-mail válido.', 'error');
+      return;
+    }
+
+    if (!isValidRa(normalizedRa)) {
+      showToast('RA inválido. Use ao menos 4 dígitos numéricos.', 'error');
+      return;
+    }
+
+    if (!isStrongPassword(newPassword)) {
+      showToast(
+        `Senha deve ter ao menos ${MIN_PASSWORD_LENGTH} caracteres, incluindo letras e números.`,
+        'error'
+      );
       return;
     }
 
     setLoading(true);
     try {
       const response = await resetPassword({
-        email,
-        ra,
+        email: normalizedEmail,
+        ra: normalizedRa,
         newPassword,
       });
       const message =
@@ -87,7 +115,10 @@ export default function AuthForgotPasswordPage() {
           </div>
 
           <div className="space-y-2">
-            <p className="text-xs text-brand">* Crie uma nova senha segura com caracteres especiais</p>
+            <p className="text-xs text-brand">
+              * Crie uma nova senha com no mínimo {MIN_PASSWORD_LENGTH} caracteres, letras e
+              números
+            </p>
 
             <AuthInput
               type={showPassword ? 'text' : 'password'}

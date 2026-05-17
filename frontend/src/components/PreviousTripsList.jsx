@@ -1,4 +1,4 @@
-import { FiClock } from 'react-icons/fi';
+import RideListCard from './ride/RideListCard';
 
 export default function PreviousTripsList({ ridesLoading, trips }) {
   return (
@@ -15,18 +15,13 @@ export default function PreviousTripsList({ ridesLoading, trips }) {
       ) : (
         <div className="space-y-3">
           {trips.map((ride) => (
-            <article
+            <RideListCard
               key={ride.id}
-              className="rounded-xl border border-border-muted bg-surface-input/20 px-3 py-3 flex items-center gap-3"
-            >
-              <div className="w-10 h-10 rounded-lg bg-black/20 border border-border-muted flex items-center justify-center">
-                <FiClock className="w-4 h-4 text-text-main/70" />
-              </div>
-              <div className="min-w-0">
-                <h3 className="text-sm text-gray-100 truncate">{ride.title}</h3>
-                <p className="text-xs text-text-main/60 truncate">{ride.subtitle}</p>
-              </div>
-            </article>
+              title={ride.title}
+              subtitle={ride.subtitle}
+              meta={ride.meta}
+              onClick={ride.onClick}
+            />
           ))}
         </div>
       )}

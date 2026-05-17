@@ -1,16 +1,17 @@
+const HttpError = require('../utils/HttpError');
+
 class CoordinateService {
+  static OPENROUTESERVICE_URL = 'https://api.openrouteservice.org/v2/directions/driving-car/geojson';
+
   constructor({ httpClient, apiKey }) {
     this.httpClient = httpClient;
     this.apiKey = apiKey;
-    this.url = 'https://api.openrouteservice.org/v2/directions/driving-car/geojson';
   }
 
   async calculateCarRoute(coordinates) {
-    const response = await this.httpClient.post(
-      this.url,
-      {
-        coordinates,
-      },
+    const apiResponse = await this.httpClient.post(
+      CoordinateService.OPENROUTESERVICE_URL,
+      { coordinates },
       {
         headers: {
           Authorization: this.apiKey,
@@ -19,13 +20,11 @@ class CoordinateService {
       }
     );
 
-    if (!response.data) {
-      const err = new Error('Error calculating route on external API');
-      err.statusCode = 502;
-      throw err;
+    if (!apiResponse.data) {
+      throw new HttpError('Erro ao calcular rota na API externa', 502);
     }
 
-    return response.data;
+    return apiResponse.data;
   }
 }
 

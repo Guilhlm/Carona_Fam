@@ -1,14 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FiClock, FiMapPin } from 'react-icons/fi';
+import { isWithinCampinas } from '../../utils/campinasGeo';
 import { formatSuggestionAddress, searchAddresses } from '../../utils/nominatim';
 
-/**
- * Campo de texto com sugestões Nominatim conforme o usuário digita (debounce).
- */
 export default function AddressAutocompleteField({
   value,
   onChange,
   onPick,
+  onOutOfRadius,
   placeholder = '',
   icon,
   inputClassName = '',
@@ -28,37 +27,42 @@ export default function AddressAutocompleteField({
       return undefined;
     }
 
-    const timer = setTimeout(async () => {
+    const debounceTimer = setTimeout(async () => {
       setLoading(true);
       try {
-        const list = await searchAddresses(value);
-        setSuggestions(list);
-      } catch {
+        const suggestionList = await searchAddresses(value);
+        setSuggestions(suggestionList);
+      } catch (searchError) {
         setSuggestions([]);
       } finally {
         setLoading(false);
       }
     }, 400);
 
-    return () => clearTimeout(timer);
+    return () => clearTimeout(debounceTimer);
   }, [value, open, canSearch]);
 
   useEffect(() => {
-    function handleDown(event) {
-      if (!wrapRef.current?.contains(event.target)) {
+    function handleClickOutside(mouseEvent) {
+      if (!wrapRef.current?.contains(mouseEvent.target)) {
         setOpen(false);
       }
     }
-    document.addEventListener('mousedown', handleDown);
-    return () => document.removeEventListener('mousedown', handleDown);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const handleSelect = (location) => {
-    const label = formatSuggestionAddress(location);
-    const lon = Number(location.lon);
-    const lat = Number(location.lat);
-    onChange(label);
-    onPick({ label, lon, lat });
+    const selectedLon = Number(location.lon);
+    const selectedLat = Number(location.lat);
+    if (!isWithinCampinas(selectedLat, selectedLon)) {
+      onOutOfRadius?.();
+      return;
+    }
+
+    const suggestionLabel = formatSuggestionAddress(location);
+    onChange(suggestionLabel);
+    onPick({ label: suggestionLabel, lon: selectedLon, lat: selectedLat });
     setOpen(false);
     setSuggestions([]);
   };
@@ -76,8 +80,8 @@ export default function AddressAutocompleteField({
           value={value}
           placeholder={placeholder}
           autoComplete="off"
-          onChange={(e) => {
-            onChange(e.target.value);
+          onChange={(inputEvent) => {
+            onChange(inputEvent.target.value);
             setOpen(true);
           }}
           onFocus={() => setOpen(true)}
@@ -91,11 +95,13 @@ export default function AddressAutocompleteField({
           {loading ? (
             <li className="px-3 py-3 text-xs text-text-main/70">Buscando endereços…</li>
           ) : suggestions.length === 0 ? (
-            <li className="px-3 py-3 text-xs text-text-main/70">Nenhum resultado para essa busca.</li>
+            <li className="px-3 py-3 text-xs text-text-main/70">
+              Nenhum endereço na região de Campinas para essa busca.
+            </li>
           ) : (
             suggestions.map((location) => {
-              const label = formatSuggestionAddress(location);
-              const city =
+              const suggestionLabel = formatSuggestionAddress(location);
+              const cityName =
                 location.address?.city ||
                 location.address?.town ||
                 location.address?.village ||
@@ -105,15 +111,15 @@ export default function AddressAutocompleteField({
                 <li key={location.place_id}>
                   <button
                     type="button"
-                    onMouseDown={(e) => e.preventDefault()}
+                    onMouseDown={(mouseEvent) => mouseEvent.preventDefault()}
                     onClick={() => handleSelect(location)}
                     className="flex w-full gap-2 px-3 py-2.5 text-left text-sm hover:bg-black/25"
                   >
                     <FiMapPin className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
                     <span className="min-w-0">
-                      <span className="block text-text-main">{label}</span>
+                      <span className="block text-text-main">{suggestionLabel}</span>
                       <span className="block truncate text-xs text-text-main/60">
-                        {city}
+                        {cityName}
                         {location.address?.state ? ` - ${location.address.state}` : ''}
                       </span>
                     </span>

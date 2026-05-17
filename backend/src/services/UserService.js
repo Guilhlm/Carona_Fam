@@ -1,3 +1,6 @@
+const InputNormalizer = require('../utils/InputNormalizer');
+const HttpError = require('../utils/HttpError');
+
 class UserService {
   constructor({ userRepository }) {
     this.userRepository = userRepository;
@@ -7,21 +10,17 @@ class UserService {
     const user = await this.userRepository.findMeById(userId);
 
     if (!user) {
-      const err = new Error('Usuário não encontrado');
-      err.statusCode = 404;
-      throw err;
+      throw HttpError.notFound('Usuário não encontrado');
     }
 
     return user;
   }
 
-  async updateMe(userId, data) {
+  async updateMe(userId, payload) {
     const existing = await this.userRepository.findById(userId);
 
     if (!existing) {
-      const err = new Error('Usuário não encontrado');
-      err.statusCode = 404;
-      throw err;
+      throw HttpError.notFound('Usuário não encontrado');
     }
 
     const allowedFields = [
@@ -36,65 +35,93 @@ class UserService {
       'photoUrl',
       'role',
     ];
-    const updateData = {};
+    const updatePayload = {};
 
-    allowedFields.forEach((field) => {
-      if (Object.prototype.hasOwnProperty.call(data, field)) {
-        if (field === 'age') {
-          if (data.age === null || data.age === '' || Number.isNaN(Number(data.age))) {
-            updateData.age = null;
-          } else {
-            updateData.age = parseInt(data.age, 10);
-          }
-        } else if (field === 'gender') {
-          const value = data.gender;
-          if (value === null || value === '') {
-            updateData.gender = null;
-          } else if (typeof value === 'string') {
-            updateData.gender = value.toUpperCase();
-          }
-        } else if (field === 'ra') {
-          const value = data.ra;
-          updateData.ra = value === '' ? null : value;
-        } else if (field === 'role') {
-          const raw = data.role;
-          const value = typeof raw === 'string' ? raw.toUpperCase() : '';
-          if (value === 'USER' || value === 'DRIVER') {
-            updateData.role = value;
-          }
+    allowedFields.forEach((fieldName) => {
+      if (!Object.prototype.hasOwnProperty.call(payload, fieldName)) return;
+
+      if (fieldName === 'age') {
+        const rawAge = payload.age;
+        if (rawAge === null || rawAge === '' || Number.isNaN(Number(rawAge))) {
+          updatePayload.age = null;
         } else {
-          updateData[field] = data[field] === '' ? null : data[field];
+          updatePayload.age = parseInt(rawAge, 10);
         }
+        return;
       }
+
+      if (fieldName === 'gender') {
+        const rawGender = payload.gender;
+        if (rawGender === null || rawGender === '') {
+          updatePayload.gender = null;
+        } else if (typeof rawGender === 'string') {
+          updatePayload.gender = rawGender.toUpperCase();
+        }
+        return;
+      }
+
+      if (fieldName === 'ra') {
+        const normalizedRa = InputNormalizer.normalizeDigits(payload.ra, 20);
+        updatePayload.ra = normalizedRa || null;
+        return;
+      }
+
+      if (fieldName === 'role') {
+        const rawRole = payload.role;
+        const upperRole = typeof rawRole === 'string' ? rawRole.toUpperCase() : '';
+        if (upperRole === 'USER' || upperRole === 'DRIVER') {
+          updatePayload.role = upperRole;
+        }
+        return;
+      }
+
+      if (fieldName === 'email') {
+        const normalizedEmail = InputNormalizer.normalizeEmail(payload.email);
+        if (normalizedEmail && !InputNormalizer.isValidEmail(normalizedEmail)) {
+          throw HttpError.badRequest('Informe um e-mail válido');
+        }
+        updatePayload.email = normalizedEmail || null;
+        return;
+      }
+
+      if (fieldName === 'phone') {
+        const normalizedPhone = InputNormalizer.normalizeDigits(payload.phone, 15);
+        updatePayload.phone = normalizedPhone || null;
+        return;
+      }
+
+      if (fieldName === 'cep') {
+        const normalizedCep = InputNormalizer.normalizeDigits(payload.cep, 8);
+        updatePayload.cep = normalizedCep || null;
+        return;
+      }
+
+      updatePayload[fieldName] = InputNormalizer.normalizeOptionalString(payload[fieldName]);
     });
 
     if (
-      Object.prototype.hasOwnProperty.call(updateData, 'ra') &&
-      updateData.ra &&
-      updateData.ra !== existing.ra
+      Object.prototype.hasOwnProperty.call(updatePayload, 'ra') &&
+      updatePayload.ra &&
+      updatePayload.ra !== existing.ra
     ) {
-      const otherWithSameRa = await this.userRepository.findByRa(updateData.ra);
+      const otherWithSameRa = await this.userRepository.findByRa(updatePayload.ra);
       if (otherWithSameRa && otherWithSameRa.id !== userId) {
-        const err = new Error('RA já cadastrado');
-        err.statusCode = 409;
-        throw err;
+        throw HttpError.conflict('RA já cadastrado');
       }
     }
 
     if (
-      Object.prototype.hasOwnProperty.call(updateData, 'email') &&
-      updateData.email &&
-      updateData.email !== existing.email
+      Object.prototype.hasOwnProperty.call(updatePayload, 'email') &&
+      updatePayload.email &&
+      updatePayload.email !== existing.email
     ) {
-      const otherWithSameEmail = await this.userRepository.findByEmail(updateData.email);
+      const otherWithSameEmail = await this.userRepository.findByEmail(updatePayload.email);
       if (otherWithSameEmail && otherWithSameEmail.id !== userId) {
-        const err = new Error('Email já cadastrado');
-        err.statusCode = 409;
-        throw err;
+        throw HttpError.conflict('Email já cadastrado');
       }
     }
 
-    return this.userRepository.updateById(userId, updateData);
+    return this.userRepository.updateById(userId, updatePayload);
   }
 }
 

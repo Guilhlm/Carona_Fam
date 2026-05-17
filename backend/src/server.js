@@ -1,4 +1,3 @@
-// Carrega variáveis de ambiente (.env) antes de qualquer uso do Prisma
 const config = require('./config/env');
 const app = require('./app');
 const logger = require('./utils/logger');

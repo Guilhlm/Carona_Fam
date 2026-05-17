@@ -5,6 +5,12 @@ import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import AuthInput from '../components/ui/AuthInput';
 import Logo from '../assets/images/Logo.png';
+import {
+  MIN_PASSWORD_LENGTH,
+  isStrongPassword,
+  isValidEmail,
+  normalizeEmail,
+} from '../utils/validation';
 
 export default function AuthRegisterPage() {
   const [email, setEmail] = useState('');
@@ -23,6 +29,20 @@ export default function AuthRegisterPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const normalizedEmail = normalizeEmail(email);
+
+    if (!isValidEmail(normalizedEmail)) {
+      showToast('Informe um e-mail válido.', 'error');
+      return;
+    }
+
+    if (!isStrongPassword(password)) {
+      showToast(
+        `Senha deve ter ao menos ${MIN_PASSWORD_LENGTH} caracteres, incluindo letras e números.`,
+        'error'
+      );
+      return;
+    }
 
     if (password !== confirmPassword) {
       showToast('As senhas não coincidem', 'error');
@@ -32,7 +52,7 @@ export default function AuthRegisterPage() {
     setLoading(true);
     try {
       await register({
-        email,
+        email: normalizedEmail,
         password,
       });
       hideToast();
@@ -70,7 +90,9 @@ export default function AuthRegisterPage() {
           </div>
 
           <div className="space-y-2">
-            <p className="text-xs text-brand">* Crie uma senha segura com caracteres especiais</p>
+            <p className="text-xs text-brand">
+              * Crie uma senha com no mínimo {MIN_PASSWORD_LENGTH} caracteres, letras e números
+            </p>
 
             <AuthInput
               type={showPassword ? 'text' : 'password'}

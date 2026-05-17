@@ -14,20 +14,29 @@ const adminNavItems = [
   { id: 'rides', label: 'Corridas' },
 ];
 
+const TAB_PAGES = {
+  users: AdminUsersPage,
+  drivers: AdminDriversPage,
+  vehicles: AdminVehiclesPage,
+  reviews: AdminReviewsPage,
+  rides: AdminRidesPage,
+};
+
 export default function AdminLayout() {
   const [activeTab, setActiveTab] = useState('users');
+  const ActivePage = TAB_PAGES[activeTab] ?? AdminUsersPage;
 
   return (
-    <div className="min-h-screen flex flex-col relative">
-      <main className="flex-1 pb-24 px-4 py-8 text-text-main overflow-x-hidden">
-        <div className="w-full max-w-4xl md:max-w-5xl xl:max-w-6xl mx-auto flex flex-col">
-          <header className="mb-4">
-            <h1 className="text-center text-xl mb-5 md:text-2xl font-semibold text-text-main">
+    <div className="h-[100dvh] flex flex-col overflow-hidden relative overscroll-none">
+      <main className="flex-1 min-h-0 flex flex-col px-4 pt-4 pb-28 text-text-main overflow-hidden">
+        <div className="w-full max-w-4xl md:max-w-5xl xl:max-w-6xl mx-auto flex flex-col flex-1 min-h-0 h-full">
+          <header className="shrink-0 mb-3">
+            <h1 className="text-center text-xl md:text-2xl font-semibold text-text-main">
               Área Administrativa
             </h1>
           </header>
 
-          <nav className="flex gap-3 mb-4">
+          <nav className="shrink-0 flex gap-2 md:gap-3 mb-3" aria-label="Abas do admin">
             {adminNavItems.map((item) => {
               const active = activeTab === item.id;
               return (
@@ -35,7 +44,7 @@ export default function AdminLayout() {
                   key={item.id}
                   type="button"
                   onClick={() => setActiveTab(item.id)}
-                  className={`flex-1 h-[38px] px-3 rounded-[10px] text-xs md:text-sm border flex items-center justify-center transition-colors ${
+                  className={`flex-1 h-[38px] px-2 md:px-3 rounded-[10px] text-xs md:text-sm border flex items-center justify-center transition-colors ${
                     active
                       ? 'bg-brand text-text-main border-brand/80'
                       : 'border-border-muted text-text-muted hover:border-brand/60 hover:text-text-main'
@@ -47,12 +56,10 @@ export default function AdminLayout() {
             })}
           </nav>
 
-          <div className="rounded-[10px] border-2 border-border-muted bg-surface-input/20 backdrop-blur-2xl px-4 py-5 md:px-6 md:py-6 shadow-2xl text-sm text-text-main">
-            {activeTab === 'users' && <AdminUsersPage />}
-            {activeTab === 'drivers' && <AdminDriversPage />}
-            {activeTab === 'vehicles' && <AdminVehiclesPage />}
-            {activeTab === 'reviews' && <AdminReviewsPage />}
-            {activeTab === 'rides' && <AdminRidesPage />}
+          <div className="flex-1 min-h-0 rounded-[10px] border-2 border-border-muted bg-surface-input/20 backdrop-blur-2xl px-4 py-4 md:px-6 md:py-5 shadow-2xl text-sm text-text-main flex flex-col overflow-hidden">
+            <div className="flex flex-1 min-h-0 flex-col overflow-hidden h-full w-full">
+              <ActivePage key={activeTab} />
+            </div>
           </div>
         </div>
       </main>

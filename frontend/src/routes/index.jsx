@@ -10,7 +10,12 @@ import ProfilePage from "../pages/ProfilePage";
 import RideHistoryPage from "../pages/RideHistoryPage";
 import RideInProgressPage from "../pages/RideInProgressPage";
 import RideRequestPage from "../pages/RideRequestPage";
+import RideWaitingPage from "../pages/RideWaitingPage";
+import RideOpenDetailPage from "../pages/RideOpenDetailPage";
+import RideSummaryPage from "../pages/RideSummaryPage";
+import RideNavigationPage from "../pages/RideNavigationPage";
 import AvailableRidesPage from "../pages/AvailableRidesPage";
+import ScheduledRidesPage from "../pages/ScheduledRidesPage";
 
 import MapTestPage from "../pages/Test/MapTest";
 
@@ -43,6 +48,14 @@ export default [
     element: <AuthForgotPasswordPage />,
   },
   {
+    path: "/home/rides/:id/navigate",
+    element: (
+      <RequireAuth>
+        <RideNavigationPage />
+      </RequireAuth>
+    ),
+  },
+  {
     path: "/home",
     element: <MainLayout />,
     children: [
@@ -72,10 +85,50 @@ export default [
         ),
       },
       {
+        path: "rides/scheduled",
+        element: (
+          <RequireAuth>
+            <ScheduledRidesPage />
+          </RequireAuth>
+        ),
+      },
+      {
         path: "rides/history",
         element: (
           <RequireAuth>
             <RideHistoryPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: "rides/:id/waiting",
+        element: (
+          <RequireAuth>
+            <RideWaitingPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: "rides/:id/preview",
+        element: (
+          <RequireAuth>
+            <RideOpenDetailPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: "rides/:id/active",
+        element: (
+          <RequireAuth>
+            <RideInProgressPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: "rides/:id/summary",
+        element: (
+          <RequireAuth>
+            <RideSummaryPage />
           </RequireAuth>
         ),
       },

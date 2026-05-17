@@ -80,7 +80,7 @@ export default function CustomSelect({
         >
           {options.map((opt) => (
             <li
-              key={opt.value}
+              key={String(opt.value)}
               role="option"
               aria-selected={value === opt.value}
               className={`${optionBase} ${value === opt.value ? optionSelected : ''}`}
@@ -89,7 +89,12 @@ export default function CustomSelect({
                 setOpen(false);
               }}
             >
-              <span className={opt.isDisabled ? 'text-red-500' : ''}>{opt.label}</span>
+              <span className={`block ${opt.isDisabled ? 'text-red-500' : 'font-medium'}`}>
+                {opt.label}
+              </span>
+              {opt.description ? (
+                <span className="mt-0.5 block text-[11px] text-text-main/60">{opt.description}</span>
+              ) : null}
             </li>
           ))}
         </ul>

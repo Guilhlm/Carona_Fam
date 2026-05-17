@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { FiCrosshair, FiFlag, FiMinus, FiNavigation, FiPlus, FiSearch, FiTrash2, FiUsers } from 'react-icons/fi';
 import AddressAutocompleteField from '../components/ride/AddressAutocompleteField';
 import CustomSelect from '../components/ui/CustomSelect';
@@ -10,30 +10,27 @@ import {
   getBestEffortPosition,
   geolocationErrorMessage,
 } from '../utils/geolocation';
+import { ADDRESS_OUT_OF_RADIUS_MESSAGE } from '../utils/campinasGeo';
 import { formatSuggestionAddress, reverseGeocode, searchAddresses } from '../utils/nominatim';
-import { leafletToHomeCoords, prependScheduledRide } from '../utils/scheduledRides';
+import { useMapViewportPadding } from '../hooks/useMapViewportPadding';
+import { flyToVisibleCenter } from '../utils/mapViewport';
+import * as rideService from '../services/rideService';
 
 const PASSENGER_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8];
-
-function coordsHomeToLeaflet(coords) {
-  if (!Array.isArray(coords) || coords.length !== 2) return null;
-  const [lon, lat] = coords.map(Number);
-  if (Number.isNaN(lat) || Number.isNaN(lon)) return null;
-  return [lat, lon];
-}
+const MAX_STOPS = 3;
 
 export default function RideRequestPage() {
-  const location = useLocation();
+  const navigate = useNavigate();
   const { showToast } = useToast();
-  const scheduledRide = location.state?.scheduledRide;
+  const [submitting, setSubmitting] = useState(false);
 
   const [originText, setOriginText] = useState('');
   const [destinationText, setDestinationText] = useState('');
   const [passengers, setPassengers] = useState(1);
   const [allowNewPassengers, setAllowNewPassengers] = useState(false);
 
-  const [partidaLatLng, setPartidaLatLng] = useState(null);
-  const [destinoLatLng, setDestinoLatLng] = useState(null);
+  const [originLatLng, setOriginLatLng] = useState(null);
+  const [destinationLatLng, setDestinationLatLng] = useState(null);
   const [geoLatLng, setGeoLatLng] = useState(null);
 
   const [stops, setStops] = useState([]);
@@ -42,18 +39,14 @@ export default function RideRequestPage() {
   const [leafletMap, setLeafletMap] = useState(null);
   const [locatingMe, setLocatingMe] = useState(false);
   const mapFitSuppressedRef = useRef(false);
-
-  const scheduleSummary = useMemo(() => {
-    if (!scheduledRide) return null;
-    const parts = [];
-    if (scheduledRide.departureAt) {
-      parts.push(`Saída: ${new Date(scheduledRide.departureAt).toLocaleString('pt-BR')}`);
-    }
-    if (scheduledRide.returnAt) {
-      parts.push(`Retorno: ${new Date(scheduledRide.returnAt).toLocaleString('pt-BR')}`);
-    }
-    return parts.length ? parts.join(' · ') : null;
-  }, [scheduledRide]);
+  const mapContainerRef = useRef(null);
+  const acceptCaronaEndRef = useRef(null);
+  const requestTripStartRef = useRef(null);
+  const mapViewportPadding = useMapViewportPadding(
+    mapContainerRef,
+    acceptCaronaEndRef,
+    requestTripStartRef
+  );
 
   const passengerSelectOptions = useMemo(
     () =>
@@ -64,21 +57,21 @@ export default function RideRequestPage() {
     []
   );
 
-  useEffect(() => {
-    if (!scheduledRide) return;
-    if (scheduledRide.destination) {
-      setDestinationText(String(scheduledRide.destination));
-      setDestinoLatLng(coordsHomeToLeaflet(scheduledRide.destinationCoords));
-    }
-    if (scheduledRide.origin) {
-      setOriginText(String(scheduledRide.origin));
-      const oll = coordsHomeToLeaflet(scheduledRide.originCoords);
-      if (oll) setPartidaLatLng(oll);
-    }
-    const p = Number(scheduledRide.passengers);
-    if (Number.isFinite(p) && p >= 1 && p <= 8) setPassengers(p);
-    setAllowNewPassengers(scheduledRide.allowNewPassengers === true);
-  }, [scheduledRide]);
+  const allowCaronaOptions = useMemo(
+    () => [
+      {
+        value: false,
+        label: 'Não, só o grupo',
+        description: 'Apenas quem já está na viagem',
+      },
+      {
+        value: true,
+        label: 'Sim, aceitar carona',
+        description: 'Novas pessoas podem entrar na viagem',
+      },
+    ],
+    []
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -97,7 +90,7 @@ export default function RideRequestPage() {
         const lon = pos.coords.longitude;
         const ll = [lat, lon];
         setGeoLatLng(ll);
-        setPartidaLatLng((prev) => prev ?? ll);
+        setOriginLatLng((prev) => prev ?? ll);
 
         try {
           const label = await reverseGeocode(lat, lon);
@@ -117,7 +110,7 @@ export default function RideRequestPage() {
           const { lat, lon } = ipLoc;
           const ll = [lat, lon];
           setGeoLatLng(ll);
-          setPartidaLatLng((prev) => prev ?? ll);
+          setOriginLatLng((prev) => prev ?? ll);
           try {
             const label = await reverseGeocode(lat, lon);
             if (!cancelled) {
@@ -145,16 +138,22 @@ export default function RideRequestPage() {
     };
   }, [showToast]);
 
-  const paradaLatLngs = useMemo(
+  const stopLatLngs = useMemo(
     () => stops.map((s) => s.latLng).filter((ll) => Array.isArray(ll) && ll.length === 2),
     [stops]
   );
 
-  const mapPartida = partidaLatLng ?? geoLatLng;
+  const mapOrigin = originLatLng ?? geoLatLng;
 
   const addStop = () => {
+    if (stops.length >= MAX_STOPS) {
+      showToast(`É possível adicionar no máximo ${MAX_STOPS} paradas.`, 'error');
+      return;
+    }
     setStops((prev) => [...prev, { id: crypto.randomUUID(), text: '', latLng: null }]);
   };
+
+  const canAddStop = stops.length < MAX_STOPS;
 
   const updateStop = (id, patch) => {
     setStops((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
@@ -164,7 +163,7 @@ export default function RideRequestPage() {
     setStops((prev) => prev.filter((s) => s.id !== id));
   };
 
-  const handleCenterOnPartidaInput = useCallback(async () => {
+  const handleCenterOnOriginInput = useCallback(async () => {
     if (!leafletMap) {
       showToast('Mapa ainda está carregando.', 'info');
       return;
@@ -187,7 +186,10 @@ export default function RideRequestPage() {
       const first = results[0];
       if (!first) {
         mapFitSuppressedRef.current = false;
-        showToast('Não encontramos esse endereço. Ajuste o texto ou escolha uma sugestão na lista.', 'error');
+        showToast(
+          'Não encontramos esse endereço na região de Campinas. Ajuste o texto ou escolha uma sugestão na lista.',
+          'error'
+        );
         return;
       }
 
@@ -201,11 +203,11 @@ export default function RideRequestPage() {
 
       const ll = [lat, lon];
       const label = formatSuggestionAddress(first);
-      setPartidaLatLng(ll);
+      setOriginLatLng(ll);
       setOriginText(label);
 
       const maxZ = leafletMap.getMaxZoom();
-      leafletMap.flyTo(ll, maxZ, { duration: 0.45 });
+      flyToVisibleCenter(leafletMap, ll, maxZ, mapViewportPadding, { duration: 0.45 });
 
       window.setTimeout(() => {
         mapFitSuppressedRef.current = false;
@@ -216,21 +218,26 @@ export default function RideRequestPage() {
     } finally {
       setLocatingMe(false);
     }
-  }, [leafletMap, originText, showToast]);
+  }, [leafletMap, originText, showToast, mapViewportPadding]);
+
+  const handleOutOfRadius = useCallback(() => {
+    showToast(ADDRESS_OUT_OF_RADIUS_MESSAGE, 'error');
+  }, [showToast]);
 
   const inputClass =
     'w-full rounded-xl border border-border-muted bg-surface-input/90 backdrop-blur-md pl-10 pr-10 py-3 text-sm text-text-main placeholder:text-text-main/45 outline-none focus:border-brand';
 
   return (
     <div className="relative min-h-[calc(100dvh-6rem)] w-full">
-      <div className="fixed inset-x-0 top-0 bottom-24 z-0">
+      <div ref={mapContainerRef} className="fixed inset-x-0 top-0 bottom-24 z-0">
         <div className="absolute inset-0 h-full w-full pointer-events-auto">
           <RideRequestMapLayer
-            partidaLatLng={mapPartida}
-            paradaLatLngs={paradaLatLngs}
-            destinoLatLng={destinoLatLng}
+            originLatLng={mapOrigin}
+            stopLatLngs={stopLatLngs}
+            destinationLatLng={destinationLatLng}
             onMapReady={setLeafletMap}
             mapFitSuppressedRef={mapFitSuppressedRef}
+            viewportPadding={mapViewportPadding}
           />
         </div>
         <div
@@ -245,8 +252,9 @@ export default function RideRequestPage() {
             value={originText}
             onChange={setOriginText}
             onPick={({ lat, lon }) => {
-              setPartidaLatLng([lat, lon]);
+              setOriginLatLng([lat, lon]);
             }}
+            onOutOfRadius={handleOutOfRadius}
             placeholder="Local de Partida"
             icon={<FiSearch className="h-4 w-4" />}
             inputClassName={inputClass}
@@ -256,8 +264,9 @@ export default function RideRequestPage() {
             value={destinationText}
             onChange={setDestinationText}
             onPick={({ lat, lon }) => {
-              setDestinoLatLng([lat, lon]);
+              setDestinationLatLng([lat, lon]);
             }}
+            onOutOfRadius={handleOutOfRadius}
             placeholder="Destino Final"
             icon={<FiFlag className="h-4 w-4" />}
             inputClassName={inputClass}
@@ -272,6 +281,7 @@ export default function RideRequestPage() {
                   onPick={({ label, lat, lon }) => {
                     updateStop(stop.id, { text: label, latLng: [lat, lon] });
                   }}
+                  onOutOfRadius={handleOutOfRadius}
                   placeholder={`Parada ${index + 1}`}
                   icon={<FiNavigation className="h-4 w-4" />}
                   inputClassName={inputClass}
@@ -303,13 +313,17 @@ export default function RideRequestPage() {
             <button
               type="button"
               onClick={addStop}
-              className="shrink-0 self-center rounded-xl bg-brand px-4 py-3 text-xs font-medium text-white hover:bg-brand/85 transition-colors"
+              disabled={!canAddStop}
+              className="shrink-0 self-center rounded-xl bg-brand px-4 py-3 text-xs font-medium text-white hover:bg-brand/85 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Adicionar Paradas
+              {canAddStop ? 'Adicionar Parada' : `Máx. ${MAX_STOPS} paradas`}
             </button>
           </div>
 
-          <div className="rounded-xl border border-border-muted bg-surface-input/90 px-3 py-3 space-y-3">
+          <div
+            ref={acceptCaronaEndRef}
+            className="rounded-xl border border-border-muted bg-surface-input/90 px-3 py-3 space-y-2.5"
+          >
             <div className="flex gap-3 items-start">
               <div
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-brand/40 bg-brand/15 text-brand"
@@ -317,50 +331,24 @@ export default function RideRequestPage() {
               >
                 <FiUsers className="h-5 w-5" />
               </div>
-              <div className="min-w-0 pt-0.5">
+              <div className="min-w-0 flex-1 pt-0.5">
                 <p className="text-sm font-semibold text-text-main leading-tight">Aceitar carona</p>
                 <p className="text-xs text-text-main/65 leading-snug mt-1">
-                  Deixe outras pessoas pedirem vaga nesta viagem (aparece em &quot;Viagens disponíveis&quot;).
+                  Permite que outras pessoas peçam vaga nesta viagem.
                 </p>
               </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setAllowNewPassengers(true)}
-                className={`min-h-[44px] rounded-lg px-3 py-2.5 text-sm font-medium border transition-colors text-left ${
-                  allowNewPassengers
-                    ? 'border-brand bg-brand/25 text-brand ring-1 ring-brand/30'
-                    : 'border-border-muted bg-black/30 text-text-main/80 hover:bg-black/40'
-                }`}
-              >
-                <span className="block font-semibold">Sim, aceitar carona</span>
-                <span className="block text-[11px] font-normal text-text-main/60 mt-0.5">
-                  Novas pessoas podem entrar
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setAllowNewPassengers(false)}
-                className={`min-h-[44px] rounded-lg px-3 py-2.5 text-sm font-medium border transition-colors text-left ${
-                  !allowNewPassengers
-                    ? 'border-brand bg-brand/25 text-text-main ring-1 ring-brand/30'
-                    : 'border-border-muted bg-black/30 text-text-main/80 hover:bg-black/40'
-                }`}
-              >
-                <span className="block font-semibold">Não, só o grupo</span>
-                <span className="block text-[11px] font-normal text-text-main/60 mt-0.5">
-                  Apenas quem já está na viagem
-                </span>
-              </button>
-            </div>
+            <CustomSelect
+              value={allowNewPassengers}
+              onChange={setAllowNewPassengers}
+              options={allowCaronaOptions}
+              placeholder="Selecione uma opção"
+              aria-label="Aceitar carona na viagem"
+              size="sm"
+              className="w-full"
+            />
           </div>
 
-          {scheduleSummary && (
-            <p className="rounded-xl border border-border-muted/80 bg-black/30 px-3 py-2 text-xs text-text-main/80 backdrop-blur-sm">
-              {scheduleSummary}
-            </p>
-          )}
         </div>
 
         <div className="mt-auto flex flex-col items-stretch gap-5 pt-8">
@@ -388,7 +376,7 @@ export default function RideRequestPage() {
               type="button"
               aria-label="Centralizar mapa no endereço de partida"
               disabled={locatingMe}
-              onClick={handleCenterOnPartidaInput}
+              onClick={handleCenterOnOriginInput}
               className="flex h-11 w-11 items-center justify-center rounded-xl border border-border-muted bg-surface-input/95 text-text-main shadow-lg backdrop-blur-md hover:bg-black/25 active:bg-black/35 disabled:opacity-50"
             >
               <FiCrosshair className={`h-5 w-5 ${locatingMe ? 'animate-pulse' : ''}`} />
@@ -396,32 +384,70 @@ export default function RideRequestPage() {
           </div>
 
           <button
+            ref={requestTripStartRef}
             type="button"
-            onClick={() => {
+            disabled={submitting}
+            onClick={async () => {
+              if (submitting) return;
+              if (!originText.trim()) {
+                showToast('Informe o local de partida.', 'error');
+                return;
+              }
+              const origin = originLatLng ?? geoLatLng;
+              if (!Array.isArray(origin) || origin.length !== 2) {
+                showToast('Selecione um endereço de partida válido na busca.', 'error');
+                return;
+              }
               if (!destinationText.trim()) {
                 showToast('Informe o destino final.', 'error');
                 return;
               }
-              const partida = partidaLatLng ?? geoLatLng;
-              const payload = {
-                id: Date.now(),
-                type: 'REQUEST',
-                origin: originText.trim() || null,
-                destination: destinationText.trim(),
-                originCoords: leafletToHomeCoords(partida),
-                destinationCoords: leafletToHomeCoords(destinoLatLng),
-                departureAt: scheduledRide?.departureAt || null,
-                returnAt: scheduledRide?.returnAt || null,
-                passengers,
-                allowNewPassengers,
-                createdAt: new Date().toISOString(),
-              };
-              prependScheduledRide(payload);
-              showToast('Solicitação de viagem registrada (demo).', 'success');
+              if (!Array.isArray(destinationLatLng) || destinationLatLng.length !== 2) {
+                showToast('Selecione um destino válido na busca para continuar.', 'error');
+                return;
+              }
+
+              const invalidStop = stops.find(
+                (s) => !s.text.trim() || !Array.isArray(s.latLng) || s.latLng.length !== 2
+              );
+              if (invalidStop) {
+                showToast('Selecione um endereço válido para cada parada.', 'error');
+                return;
+              }
+
+              setSubmitting(true);
+              try {
+                const ride = await rideService.requestNewRide({
+                  origin: originText.trim(),
+                  originLat: origin[0],
+                  originLng: origin[1],
+                  destination: destinationText.trim(),
+                  destinationLat: destinationLatLng[0],
+                  destinationLng: destinationLatLng[1],
+                  stops: stops.map((s) => ({
+                    address: s.text.trim(),
+                    lat: s.latLng[0],
+                    lng: s.latLng[1],
+                  })),
+                });
+
+                navigate(`/home/rides/${ride.id}/waiting`, { replace: true });
+              } catch (err) {
+                const status = err?.response?.status;
+                const message = err?.response?.data?.error || 'Erro ao solicitar viagem.';
+                if (status === 409 && err?.response?.data?.rideId) {
+                  showToast('Você já possui uma corrida em andamento.', 'info');
+                  navigate(`/home/rides/${err.response.data.rideId}/waiting`, { replace: true });
+                } else {
+                  showToast(message, 'error');
+                }
+              } finally {
+                setSubmitting(false);
+              }
             }}
-            className="w-full rounded-xl bg-brand py-4 text-sm font-semibold text-white shadow-lg shadow-black/30 hover:bg-brand/85 transition-colors"
+            className="w-full rounded-xl bg-brand py-4 text-sm font-semibold text-white shadow-lg shadow-black/30 hover:bg-brand/85 transition-colors disabled:opacity-60"
           >
-            Solicitar Viagem
+            {submitting ? 'Solicitando...' : 'Solicitar Viagem'}
           </button>
         </div>
       </div>

@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
-import L from 'leaflet';
 import { MapContainer, TileLayer, CircleMarker, useMap } from 'react-leaflet';
+import { DEFAULT_MAP_VIEWPORT_PADDING, fitMapToPoints } from '../../utils/mapViewport';
 import 'leaflet/dist/leaflet.css';
 
 function MapReadyBridge({ onMapReady }) {
@@ -17,58 +17,67 @@ const SP_FALLBACK = [-23.5505, -46.6333];
 function InvalidateOnMount() {
   const map = useMap();
   useEffect(() => {
-    const id = requestAnimationFrame(() => {
+    const animationFrameId = requestAnimationFrame(() => {
       map.invalidateSize();
     });
-    return () => cancelAnimationFrame(id);
+    return () => cancelAnimationFrame(animationFrameId);
   }, [map]);
   return null;
 }
 
-/**
- * @param {{ points: [number, number][], partida: [number, number] | null, paradas: [number, number][], destino: [number, number] | null }} props
- */
-function MapViewSync({ points, mapFitSuppressedRef }) {
+function InvalidateOnPaddingChange({ viewportPadding }) {
   const map = useMap();
+  useEffect(() => {
+    const animationFrameId = requestAnimationFrame(() => {
+      map.invalidateSize();
+    });
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [map, viewportPadding]);
+  return null;
+}
+
+function MapViewSync({ points, mapFitSuppressedRef, viewportPadding }) {
+  const map = useMap();
+  const resolvedPadding = viewportPadding ?? DEFAULT_MAP_VIEWPORT_PADDING;
+
   useEffect(() => {
     if (mapFitSuppressedRef?.current) return;
 
-    const valid = (points || []).filter((p) => Array.isArray(p) && p.length === 2);
-    if (valid.length >= 2) {
-      const bounds = L.latLngBounds(valid);
-      map.fitBounds(bounds, { padding: [80, 80], maxZoom: 16, animate: true });
-      return;
-    }
-    if (valid.length === 1) {
-      map.setView(valid[0], 15, { animate: true });
+    const validPoints = (points || []).filter(
+      (pointPair) => Array.isArray(pointPair) && pointPair.length === 2
+    );
+    if (validPoints.length >= 1) {
+      fitMapToPoints(map, validPoints, resolvedPadding, { maxZoom: 16, animate: true });
       return;
     }
     map.setView(SP_FALLBACK, 12, { animate: false });
-  }, [points, map, mapFitSuppressedRef]);
+  }, [points, map, mapFitSuppressedRef, resolvedPadding]);
+
   return null;
 }
 
 export default function RideRequestMapLayer({
-  partidaLatLng,
-  paradaLatLngs = [],
-  destinoLatLng,
+  originLatLng,
+  stopLatLngs = [],
+  destinationLatLng,
   onMapReady,
   mapFitSuppressedRef,
+  viewportPadding,
 }) {
   const points = useMemo(
     () =>
-      [partidaLatLng, ...paradaLatLngs, destinoLatLng].filter(
-        (p) => Array.isArray(p) && p.length === 2
+      [originLatLng, ...stopLatLngs, destinationLatLng].filter(
+        (pointPair) => Array.isArray(pointPair) && pointPair.length === 2
       ),
-    [partidaLatLng, paradaLatLngs, destinoLatLng]
+    [originLatLng, stopLatLngs, destinationLatLng]
   );
 
-  const center = partidaLatLng?.length === 2
-    ? partidaLatLng
-    : destinoLatLng?.length === 2
-      ? destinoLatLng
-      : paradaLatLngs[0]?.length === 2
-        ? paradaLatLngs[0]
+  const center = originLatLng?.length === 2
+    ? originLatLng
+    : destinationLatLng?.length === 2
+      ? destinationLatLng
+      : stopLatLngs[0]?.length === 2
+        ? stopLatLngs[0]
         : SP_FALLBACK;
 
   const zoom = points.length > 0 ? 15 : 12;
@@ -94,12 +103,17 @@ export default function RideRequestMapLayer({
         maxNativeZoom={18}
       />
       <InvalidateOnMount />
+      <InvalidateOnPaddingChange viewportPadding={viewportPadding} />
       <MapReadyBridge onMapReady={onMapReady} />
-      <MapViewSync points={points} mapFitSuppressedRef={mapFitSuppressedRef} />
+      <MapViewSync
+        points={points}
+        mapFitSuppressedRef={mapFitSuppressedRef}
+        viewportPadding={viewportPadding}
+      />
 
-      {partidaLatLng?.length === 2 && (
+      {originLatLng?.length === 2 && (
         <CircleMarker
-          center={partidaLatLng}
+          center={originLatLng}
           radius={9}
           pathOptions={{
             color: '#ffffff',
@@ -110,11 +124,11 @@ export default function RideRequestMapLayer({
         />
       )}
 
-      {paradaLatLngs.map((ll, idx) =>
-        ll?.length === 2 ? (
+      {stopLatLngs.map((stopLatLng, stopIndex) =>
+        stopLatLng?.length === 2 ? (
           <CircleMarker
-            key={`p-${idx}`}
-            center={ll}
+            key={`stop-${stopIndex}`}
+            center={stopLatLng}
             radius={8}
             pathOptions={{
               color: '#ffffff',
@@ -126,9 +140,9 @@ export default function RideRequestMapLayer({
         ) : null
       )}
 
-      {destinoLatLng?.length === 2 && (
+      {destinationLatLng?.length === 2 && (
         <CircleMarker
-          center={destinoLatLng}
+          center={destinationLatLng}
           radius={9}
           pathOptions={{
             color: '#ffffff',

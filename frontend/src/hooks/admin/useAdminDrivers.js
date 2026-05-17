@@ -5,7 +5,9 @@ import { useAdminFilters } from './useAdminFilters';
 import * as adminService from '../../services/adminService';
 
 const INITIAL_FILTERS = { search: '', filterOrder: 'name_asc', filterStatus: '' };
-const DEFAULT_LIMIT = 2;
+import { ADMIN_ITEMS_PER_PAGE } from '../../pages/Admin/components/adminConstants';
+
+const DEFAULT_LIMIT = ADMIN_ITEMS_PER_PAGE;
 
 export function useAdminDrivers() {
   const { show } = useNotification();
@@ -43,15 +45,21 @@ export function useAdminDrivers() {
 
   const handleBlock = useCallback(
     async (userId, block, blockReason) => {
+      const reason = String(blockReason ?? '').trim();
+      if (block && !reason) {
+        show('Informe o motivo do bloqueio do motorista.', 'error');
+        return;
+      }
+
       try {
-        await adminService.blockUser(userId, block, blockReason);
+        await adminService.blockUser(userId, block, reason || undefined);
         refetch(false);
         show(
-          block ? 'Usuário bloqueado com sucesso.' : 'Usuário ativado com sucesso.',
+          block ? 'Motorista bloqueado com sucesso.' : 'Motorista ativado com sucesso.',
           'success'
         );
       } catch (err) {
-        show(err.response?.data?.error || 'Erro ao bloquear usuário.', 'error');
+        show(err.response?.data?.error || 'Erro ao bloquear motorista.', 'error');
       }
     },
     [refetch, show]

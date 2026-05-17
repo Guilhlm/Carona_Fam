@@ -2,7 +2,9 @@ import { useAdminVehicles } from '../../hooks/admin/useAdminVehicles';
 import AdminFilters from './components/AdminFilters';
 import { buildSelects, VEHICLES_SELECTS } from './components/adminFilterConfig';
 import AdminCard from './components/AdminCard';
-import AdminPagination from './AdminPagination';
+import AdminPageShell from './components/AdminPageShell';
+import AdminListSection from './components/AdminListSection';
+import { ADMIN_CARD_GRID_CLASS } from './components/adminConstants';
 
 export default function AdminVehiclesPage() {
   const {
@@ -19,47 +21,34 @@ export default function AdminVehiclesPage() {
   const selects = buildSelects(VEHICLES_SELECTS, filters, setFilter);
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-lg md:text-xl font-semibold text-text-main">
-          Veículos
-        </h1>
-      </div>
-
-      <AdminFilters
-        searchPlaceholder="Buscar por placa, marca ou motorista"
-        searchValue={filters.search}
-        onSearchChange={(v) => setFilter('search', v)}
-        selects={selects}
-        loading={loading}
-      />
-
-      {loading ? (
-        <p className="text-xs md:text-sm text-text-muted">Carregando...</p>
-      ) : vehicles.length === 0 ? (
-        <p className="text-xs md:text-sm text-text-muted">
-          Nenhum veículo encontrado com os filtros atuais.
-        </p>
-      ) : (
-        <div className="flex flex-col gap-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {vehicles.map((vehicle) => (
+    <AdminPageShell
+      title="Veículos"
+      loading={loading}
+      isEmpty={!loading && vehicles.length === 0}
+      emptyMessage="Nenhum veículo encontrado com os filtros atuais."
+      filters={
+        <AdminFilters
+          searchPlaceholder="Buscar por placa, marca ou motorista"
+          searchValue={filters.search}
+          onSearchChange={(v) => setFilter('search', v)}
+          selects={selects}
+          loading={loading}
+        />
+      }
+    >
+      <AdminListSection pagination={pagination} page={page} onPageChange={setPage}>
+        <div className={ADMIN_CARD_GRID_CLASS}>
+          {vehicles.map((vehicle) => (
+            <div key={vehicle.id} className="h-full min-h-0">
               <AdminCard
-                key={vehicle.id}
                 variant="vehicle"
                 item={vehicle}
                 onToggleDisable={handleDisable}
               />
-            ))}
-          </div>
-
-          <AdminPagination
-            pagination={pagination}
-            page={page}
-            onPageChange={setPage}
-          />
+            </div>
+          ))}
         </div>
-      )}
-    </div>
+      </AdminListSection>
+    </AdminPageShell>
   );
 }

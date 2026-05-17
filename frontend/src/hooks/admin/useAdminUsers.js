@@ -5,7 +5,9 @@ import { useAdminFilters } from './useAdminFilters';
 import * as adminService from '../../services/adminService';
 
 const INITIAL_FILTERS = { search: '', filterBlocked: '', filterRole: '' };
-const DEFAULT_LIMIT = 2;
+import { ADMIN_ITEMS_PER_PAGE } from '../../pages/Admin/components/adminConstants';
+
+const DEFAULT_LIMIT = ADMIN_ITEMS_PER_PAGE;
 
 export function useAdminUsers() {
   const { show } = useNotification();

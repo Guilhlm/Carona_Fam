@@ -6,7 +6,9 @@ import { useExpandableList } from './useExpandableList';
 import * as adminService from '../../services/adminService';
 
 const INITIAL_FILTERS = { search: '', filterOrder: '', filterStatus: '' };
-const REVIEWS_PER_PAGE = 2;
+import { ADMIN_ITEMS_PER_PAGE } from '../../pages/Admin/components/adminConstants';
+
+const REVIEWS_PER_PAGE = ADMIN_ITEMS_PER_PAGE;
 
 function normalizeReviewsResponse(res) {
   return {

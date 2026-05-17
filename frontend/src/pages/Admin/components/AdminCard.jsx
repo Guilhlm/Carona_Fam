@@ -2,11 +2,26 @@ import { memo, useEffect, useState } from 'react';
 import Badge from '../../../components/ui/Badge';
 import Button from '../../../components/ui/Button';
 import { getCardConfig } from './adminCardConfig';
+import {
+  ADMIN_CARD_MIN_HEIGHT,
+  ADMIN_CARD_MIN_HEIGHT_EXPANDED,
+} from './adminConstants';
 
 const INPUT_CLASS =
   'w-full h-9 min-h-0 rounded-[10px] border border-border-muted bg-surface-input/20 px-3 py-2 text-xs md:text-sm text-text-main placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-brand/50 box-border';
 const REASON_READONLY_CLASS =
   'w-full h-9 min-h-0 rounded-[10px] border border-border-muted bg-surface-input/10 px-3 py-2 flex items-center text-xs md:text-sm text-text-muted';
+
+const FOOTER_ACTION_BUTTON_CLASS =
+  'w-full text-xs md:text-sm px-3 py-2 rounded-[10px] font-medium box-border';
+
+const STATUS_FOOTER_VARIANT_CLASS = {
+  default: 'bg-surface-input/40 text-text-main border border-border-muted',
+  success: 'bg-emerald-500/20 text-emerald-200 border border-emerald-500/40',
+  warning: 'bg-amber-500/20 text-amber-200 border border-amber-500/40',
+  danger: 'bg-red-500/20 text-red-200 border border-red-500/40',
+  info: 'bg-brand/20 text-brand border border-brand/50',
+};
 
 function AdminCard({
   variant,
@@ -47,21 +62,43 @@ function AdminCard({
   const badge = getBadge(item);
   const hideActions = hideActionsWhen?.(item, { isCurrentUser });
 
+  const hasReasonActions =
+    !hideActions &&
+    (actionType === 'disable-with-reason' || actionType === 'block-with-reason');
+  const hasUserActions = !hideActions && actionType === 'user-actions';
+  const hasStatusFooter =
+    !hideActions && actionType === 'status-footer' && config.getStatusFooter;
+  const hasCancelAction =
+    !hideActions &&
+    actionType === 'cancel' &&
+    !expanded &&
+    config.showCancelWhen?.(item) &&
+    onCancelRide;
+  const hasCancelInExpand =
+    !hideActions &&
+    actionType === 'status-footer' &&
+    expanded &&
+    config.showCancelWhen?.(item) &&
+    onCancelRide;
+  const hasFooterActions =
+    hasReasonActions || hasUserActions || hasCancelAction || hasStatusFooter;
+  const reasonReadonlyLabel =
+    actionType === 'block-with-reason' ? 'bloqueio' : 'desativação';
+
   const handleCardClick = (e) => {
     if (!expandable) return;
     if (e.target.closest('button') || e.target.closest('input')) return;
     onToggleExpand?.(itemId);
   };
 
-  const containerClass =
-    'rounded-[10px] border border-white/10 bg-surface-input/30 backdrop-blur-2xl px-4 py-3 md:px-5 md:py-4 flex flex-col gap-2 flex-shrink-0 ' +
-    (expandable ? 'cursor-pointer transition-all ' : 'h-[180px] md:h-[220px] ') +
-    (expandable ? 'hover:border-[1px] hover:border-brand ' : '') +
-    (expandable && expanded ? 'h-[372px] md:h-[420px] ' : expandable ? 'h-[180px] md:h-[220px] ' : '') +
-    (expandable && expanded ? ' overflow-hidden' : '');
+  const heightClass =
+    expandable && expanded ? ADMIN_CARD_MIN_HEIGHT_EXPANDED : ADMIN_CARD_MIN_HEIGHT;
 
-  const leftClass =
-    `flex-1 min-w-0 flex flex-col gap-2 ${expandable && expanded ? 'min-h-0' : ''}`;
+  const containerClass =
+    'h-full rounded-[10px] border border-white/10 bg-surface-input/30 backdrop-blur-2xl px-4 py-3 md:px-5 md:py-4 flex flex-col gap-2 ' +
+    heightClass +
+    ' ' +
+    (expandable ? 'cursor-pointer transition-all hover:border-[1px] hover:border-brand ' : '');
 
   return (
     <div
@@ -81,9 +118,8 @@ function AdminCard({
       className={containerClass}
       aria-expanded={expandable ? expanded : undefined}
     >
-      <div className={leftClass}>
-        <div className={`min-w-0 ${expandable ? 'shrink-0' : ''}`}>
-          <div className="flex items-center justify-between gap-2 pb-[5px]">
+      <div className="min-w-0 shrink-0">
+        <div className="flex items-center justify-between gap-2 pb-[5px]">
             <div className="flex items-center gap-2 min-w-0 flex-wrap">
               {getTitle(item)}
             </div>
@@ -91,20 +127,61 @@ function AdminCard({
               <Badge variant={badge.variant}>{badge.label}</Badge>
             </div>
           </div>
-          {getSubtitle(item)}
-        </div>
-
-        {expandable && expanded && getExpandContent(item)}
+        {getSubtitle(item)}
       </div>
 
-      {!hideActions && (actionType === 'disable-with-reason' || actionType === 'block-with-reason') && (
+      {expandable && expanded && (
+        <div className="flex-1 min-h-0 overflow-y-auto -mx-1 px-1">
+          {getExpandContent(item)}
+        </div>
+      )}
+
+      {hasCancelInExpand && (
         <div
-          className="flex flex-col gap-2 mt-4 md:mt-0 w-full"
+          className="shrink-0 w-full"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Button
+            variant="softDanger"
+            onClick={() => onCancelRide(item.id)}
+            className={FOOTER_ACTION_BUTTON_CLASS}
+          >
+            Cancelar corrida
+          </Button>
+        </div>
+      )}
+
+      {hasStatusFooter && (
+        <div
+          className="mt-auto w-full shrink-0"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {(() => {
+            const statusFooter = config.getStatusFooter(item);
+            const variantClass =
+              STATUS_FOOTER_VARIANT_CLASS[statusFooter.variant] ??
+              STATUS_FOOTER_VARIANT_CLASS.default;
+            return (
+              <div
+                className={`${FOOTER_ACTION_BUTTON_CLASS} flex items-center justify-center min-h-[36px] ${variantClass}`}
+                role="status"
+                aria-label={`Status: ${statusFooter.label}`}
+              >
+                {statusFooter.label}
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {hasReasonActions && (
+        <div
+          className="flex flex-col gap-2 mt-auto w-full shrink-0"
           onClick={(e) => e.stopPropagation()}
         >
           {config.getIsDisabled(item) ? (
             <div className={REASON_READONLY_CLASS}>
-              Motivo do block: {reason ? `'${reason}'` : '—'}
+              Motivo do {reasonReadonlyLabel}: {reason ? `'${reason}'` : '—'}
             </div>
           ) : (
             <input
@@ -127,7 +204,7 @@ function AdminCard({
                 onToggleBlock(item.id, !isDisabled, reason);
               }
             }}
-            className="w-full text-xs md:text-sm px-3 py-2 rounded-[10px]"
+            className={FOOTER_ACTION_BUTTON_CLASS}
           >
             {config.getActionLabel(config.getIsDisabled(item))}
           </Button>
@@ -136,7 +213,7 @@ function AdminCard({
 
       {!hideActions && actionType === 'cancel' && !expanded && config.showCancelWhen?.(item) && onCancelRide && (
         <div
-          className="flex flex-col gap-2 mt-4 md:mt-0 w-full"
+          className="flex flex-col gap-2 mt-auto w-full shrink-0"
           onClick={(e) => e.stopPropagation()}
         >
           <Button
@@ -149,9 +226,9 @@ function AdminCard({
         </div>
       )}
 
-      {!hideActions && actionType === 'user-actions' && (
+      {hasUserActions && (
         <div
-          className="flex flex-col gap-2 mt-4 md:mt-0 w-full"
+          className="flex flex-col gap-2 mt-auto w-full shrink-0"
           onClick={(e) => e.stopPropagation()}
         >
           <Button

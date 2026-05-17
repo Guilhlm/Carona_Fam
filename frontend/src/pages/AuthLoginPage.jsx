@@ -6,6 +6,7 @@ import { useToast } from '../contexts/ToastContext';
 import AuthInput from '../components/ui/AuthInput';
 import LoginButton from '../components/ui/LoginButton';
 import Logo from '../assets/images/Logo.png';
+import { isValidEmail, normalizeEmail } from '../utils/validation';
 
 export default function AuthLoginPage() {
   const [email, setEmail] = useState('');
@@ -22,9 +23,14 @@ export default function AuthLoginPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const normalizedEmail = normalizeEmail(email);
+    if (!isValidEmail(normalizedEmail)) {
+      showToast('Informe um e-mail válido.', 'error');
+      return;
+    }
     setLoading(true);
     try {
-      await login(email, password);
+      await login(normalizedEmail, password);
       hideToast();
       navigate('/home');
     } catch (err) {
@@ -49,7 +55,7 @@ export default function AuthLoginPage() {
         >
           <AuthInput
             type="email"
-            placeholder="Login"
+            placeholder="Email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             icon={

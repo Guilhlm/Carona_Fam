@@ -4,14 +4,20 @@ import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 
 const statusLabels = {
-  ACTIVE: 'Ativa',
-  FINISHED: 'Finalizada',
+  WAITING_DRIVER: 'Aguardando motorista',
+  DRIVER_ACCEPTED: 'Motorista aceito',
+  DRIVER_ARRIVING: 'Motorista a caminho',
+  IN_PROGRESS: 'Em andamento',
+  COMPLETED: 'Concluída',
   CANCELLED: 'Cancelada',
 };
 
 const statusVariant = {
-  ACTIVE: 'info',
-  FINISHED: 'success',
+  WAITING_DRIVER: 'warning',
+  DRIVER_ACCEPTED: 'info',
+  DRIVER_ARRIVING: 'info',
+  IN_PROGRESS: 'info',
+  COMPLETED: 'success',
   CANCELLED: 'danger',
 };
 
@@ -44,24 +50,30 @@ export default function RideHistoryPage() {
         </Card>
       ) : (
         <div className="space-y-4">
-          {rides.map((ride) => (
-            <Card key={ride.id} className="p-4">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="font-medium">{ride.origin} → {ride.destination}</p>
-                  <p className="text-sm text-gray-500">
-                    Motorista: {ride.driver?.name}
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    {new Date(ride.departureAt).toLocaleString('pt-BR')}
-                  </p>
+          {rides.map((ride) => {
+            const dateValue = ride.completedAt ?? ride.cancelledAt ?? ride.requestedAt ?? ride.departureAt;
+            return (
+              <Card key={ride.id} className="p-4">
+                <div className="flex justify-between items-start gap-3">
+                  <div className="min-w-0">
+                    <p className="font-medium truncate">{ride.origin} → {ride.destination}</p>
+                    <p className="text-sm text-gray-500 truncate">
+                      Passageiro: {ride.requester?.name ?? '—'}
+                    </p>
+                    <p className="text-sm text-gray-500 truncate">
+                      Motorista: {ride.driver?.name ?? '—'}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      {dateValue ? new Date(dateValue).toLocaleString('pt-BR') : '—'}
+                    </p>
+                  </div>
+                  <Badge variant={statusVariant[ride.status] || 'default'}>
+                    {statusLabels[ride.status] || ride.status}
+                  </Badge>
                 </div>
-                <Badge variant={statusVariant[ride.status] || 'default'}>
-                  {statusLabels[ride.status] || ride.status}
-                </Badge>
-              </div>
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>

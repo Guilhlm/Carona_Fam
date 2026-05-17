@@ -1,7 +1,3 @@
-/**
- * Configuração estática dos selects de filtro por seção.
- * Cada página monta selects={ buildSelects(REVIEWS_SELECTS, filters, setFilter) }.
- */
 export const REVIEWS_SELECTS = [
   {
     key: 'filterOrder',
@@ -31,8 +27,11 @@ export const RIDES_SELECTS = [
     key: 'filterStatus',
     options: [
       { value: '', label: 'Todos os status' },
-      { value: 'ACTIVE', label: 'Ativas' },
-      { value: 'FINISHED', label: 'Finalizadas' },
+      { value: 'WAITING_DRIVER', label: 'Aguardando motorista' },
+      { value: 'DRIVER_ACCEPTED', label: 'Motorista aceito' },
+      { value: 'DRIVER_ARRIVING', label: 'Motorista a caminho' },
+      { value: 'IN_PROGRESS', label: 'Em andamento' },
+      { value: 'COMPLETED', label: 'Concluídas' },
       { value: 'CANCELLED', label: 'Canceladas' },
     ],
     placeholder: 'Status',

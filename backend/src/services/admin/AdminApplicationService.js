@@ -1,3 +1,7 @@
+const InputNormalizer = require('../../utils/InputNormalizer');
+const HttpError = require('../../utils/HttpError');
+const GeoUtils = require('../../utils/GeoUtils');
+
 class AdminApplicationService {
   constructor({
     userRepository,
@@ -13,28 +17,31 @@ class AdminApplicationService {
     this.hashPassword = hashPassword;
   }
 
-  serializeRide(ride) {
-    if (!ride) return ride;
-    const { distanceKm, suggestedValue, ...rest } = ride;
-    return {
-      ...rest,
-      distanceKm:
-        distanceKm != null &&
-        typeof distanceKm === 'object' &&
-        typeof distanceKm.toNumber === 'function'
-          ? distanceKm.toNumber()
-          : distanceKm != null
-            ? Number(distanceKm)
-            : null,
-      suggestedValue:
-        suggestedValue != null &&
-        typeof suggestedValue === 'object' &&
-        typeof suggestedValue.toNumber === 'function'
-          ? suggestedValue.toNumber()
-          : suggestedValue != null
-            ? Number(suggestedValue)
-            : null,
-    };
+  serializeRide(rideRecord) {
+    if (!rideRecord) return rideRecord;
+    const numericFieldNames = [
+      'distanceKm',
+      'estimatedValue',
+      'actualValue',
+      'originLat',
+      'originLng',
+      'destinationLat',
+      'destinationLng',
+    ];
+    const serializedRide = { ...rideRecord };
+    numericFieldNames.forEach((fieldName) => {
+      if (fieldName in serializedRide) {
+        serializedRide[fieldName] = GeoUtils.decimalToNumber(serializedRide[fieldName]);
+      }
+    });
+    if (Array.isArray(serializedRide.stops)) {
+      serializedRide.stops = serializedRide.stops.map((stopRecord) => ({
+        ...stopRecord,
+        lat: GeoUtils.decimalToNumber(stopRecord.lat),
+        lng: GeoUtils.decimalToNumber(stopRecord.lng),
+      }));
+    }
+    return serializedRide;
   }
 
   listUsers(filters) {
@@ -64,48 +71,40 @@ class AdminApplicationService {
   }
 
   async cancelRide(rideId) {
-    const ride = await this.rideRepository.findById(rideId);
-    if (!ride) {
-      const err = new Error('Corrida não encontrada');
-      err.statusCode = 404;
-      throw err;
+    const rideRecord = await this.rideRepository.findById(rideId);
+    if (!rideRecord) {
+      throw HttpError.notFound('Corrida não encontrada');
     }
 
-    if (ride.status === 'CANCELLED') {
-      const err = new Error('Corrida já está cancelada');
-      err.statusCode = 400;
-      throw err;
+    if (rideRecord.status === 'CANCELLED') {
+      throw HttpError.badRequest('Corrida já está cancelada');
     }
 
     return this.rideRepository.cancelRide(rideId);
   }
 
-  async blockUser(userId, block = true, currentUserId, blockReason) {
-    const user = await this.userRepository.findById(userId);
+  async blockUser(userId, shouldBlock = true, currentUserId, blockReason) {
+    const targetUser = await this.userRepository.findById(userId);
 
-    if (!user) {
-      const err = new Error('Usuário não encontrado');
-      err.statusCode = 404;
-      throw err;
+    if (!targetUser) {
+      throw HttpError.notFound('Usuário não encontrado');
     }
 
-    if (currentUserId && user.id === currentUserId) {
-      const err = new Error('Você não pode bloquear a própria conta');
-      err.statusCode = 400;
-      throw err;
+    if (currentUserId && targetUser.id === currentUserId) {
+      throw HttpError.badRequest('Você não pode bloquear a própria conta');
     }
 
-    const updatePayload = { isBlocked: block };
-    if (block && blockReason != null && blockReason !== '') {
+    const updatePayload = { isBlocked: shouldBlock };
+    if (shouldBlock && blockReason != null && blockReason !== '') {
       updatePayload.blockReason = blockReason;
-    } else if (!block) {
+    } else if (!shouldBlock) {
       updatePayload.blockReason = null;
     }
 
     return this.userRepository.updateBlockStatus(userId, updatePayload);
   }
 
-  async createUser(data) {
+  async createUser(creationPayload) {
     const {
       email,
       password,
@@ -118,181 +117,196 @@ class AdminApplicationService {
       cep,
       role,
       isAdmin,
-    } = data;
+    } = creationPayload;
 
-    const existing = await this.userRepository.findByEmail(email);
-    if (existing) {
-      const err = new Error('Email já cadastrado');
-      err.statusCode = 409;
-      throw err;
+    const normalizedEmail = InputNormalizer.normalizeEmail(email);
+    const normalizedRa = InputNormalizer.normalizeDigits(ra, 20);
+    const rawPassword = String(password || '');
+
+    if (!normalizedEmail || !InputNormalizer.isValidEmail(normalizedEmail)) {
+      throw HttpError.badRequest('Informe um e-mail válido');
     }
 
-    if (ra) {
-      const existingRa = await this.userRepository.findByRa(ra);
-      if (existingRa) {
-        const err = new Error('RA já cadastrado');
-        err.statusCode = 409;
-        throw err;
+    if (!InputNormalizer.isStrongPassword(rawPassword)) {
+      throw HttpError.badRequest(
+        `Senha deve ter ao menos ${InputNormalizer.MIN_PASSWORD_LENGTH} caracteres, incluindo letras e números`
+      );
+    }
+
+    const existingByEmail = await this.userRepository.findByEmail(normalizedEmail);
+    if (existingByEmail) {
+      throw HttpError.conflict('Email já cadastrado');
+    }
+
+    if (normalizedRa) {
+      const existingByRa = await this.userRepository.findByRa(normalizedRa);
+      if (existingByRa) {
+        throw HttpError.conflict('RA já cadastrado');
       }
     }
 
-    const passwordHash = await this.hashPassword(password || email);
-    const userRole = role || 'USER';
+    const passwordHash = await this.hashPassword(rawPassword);
+    const resolvedRole = role || 'USER';
 
     return this.userRepository.create({
-      email,
+      email: normalizedEmail,
       passwordHash,
-      name: name || email.split('@')[0],
-      ra: ra || null,
-      course: course || null,
-      gender: gender || null,
+      name: InputNormalizer.normalizeOptionalString(name) || normalizedEmail.split('@')[0],
+      ra: normalizedRa || null,
+      course: InputNormalizer.normalizeOptionalString(course),
+      gender: InputNormalizer.normalizeOptionalString(gender),
       age: age ? parseInt(age, 10) : null,
-      phone: phone || null,
-      cep: cep || null,
-      role: userRole,
+      phone: InputNormalizer.normalizeDigits(phone, 15) || null,
+      cep: InputNormalizer.normalizeDigits(cep, 8) || null,
+      role: resolvedRole,
       isAdmin: !!isAdmin,
     });
   }
 
   async getUser(userId) {
-    const user = await this.userRepository.getDetailsById(userId);
+    const userRecord = await this.userRepository.getDetailsById(userId);
 
-    if (!user) {
-      const err = new Error('Usuário não encontrado');
-      err.statusCode = 404;
-      throw err;
+    if (!userRecord) {
+      throw HttpError.notFound('Usuário não encontrado');
     }
 
-    return user;
+    return userRecord;
   }
 
-  async updateUser(userId, data, currentUserId) {
-    const user = await this.userRepository.findById(userId);
+  async updateUser(userId, updatePayload, currentUserId) {
+    const targetUser = await this.userRepository.findById(userId);
 
-    if (!user) {
-      const err = new Error('Usuário não encontrado');
-      err.statusCode = 404;
-      throw err;
+    if (!targetUser) {
+      throw HttpError.notFound('Usuário não encontrado');
     }
 
-    const isAdminUser = user.role === 'ADMIN' || user.isAdmin;
+    const wasAdminUser = targetUser.role === 'ADMIN' || targetUser.isAdmin;
     const willBeAdmin =
-      typeof data.role !== 'undefined' || typeof data.isAdmin !== 'undefined'
-        ? (data.role || user.role) === 'ADMIN' || !!(data.isAdmin ?? user.isAdmin)
-        : isAdminUser;
+      typeof updatePayload.role !== 'undefined' || typeof updatePayload.isAdmin !== 'undefined'
+        ? (updatePayload.role || targetUser.role) === 'ADMIN' || !!(updatePayload.isAdmin ?? targetUser.isAdmin)
+        : wasAdminUser;
 
-    if (willBeAdmin && !isAdminUser && user.isBlocked) {
-      const err = new Error('Não é possível tornar administrador um usuário bloqueado');
-      err.statusCode = 400;
-      throw err;
+    if (willBeAdmin && !wasAdminUser && targetUser.isBlocked) {
+      throw HttpError.badRequest('Não é possível tornar administrador um usuário bloqueado');
     }
 
-    if (isAdminUser && !willBeAdmin) {
-      if (user.id === currentUserId) {
-        const err = new Error('Você não pode remover suas próprias permissões de administrador');
-        err.statusCode = 400;
-        throw err;
+    if (wasAdminUser && !willBeAdmin) {
+      if (targetUser.id === currentUserId) {
+        throw HttpError.badRequest('Você não pode remover suas próprias permissões de administrador');
       }
 
-      const otherAdmins = await this.userRepository.countOtherAdmins(user.id);
-      if (otherAdmins === 0) {
-        const err = new Error('Não é possível remover o último administrador');
-        err.statusCode = 400;
-        throw err;
+      const otherAdminsCount = await this.userRepository.countOtherAdmins(targetUser.id);
+      if (otherAdminsCount === 0) {
+        throw HttpError.badRequest('Não é possível remover o último administrador');
       }
     }
 
-    if (typeof data.isBlocked !== 'undefined' && isAdminUser) {
-      const err = new Error('Não é possível bloquear administradores');
-      err.statusCode = 403;
-      throw err;
+    if (typeof updatePayload.isBlocked !== 'undefined' && wasAdminUser) {
+      throw HttpError.forbidden('Não é possível bloquear administradores');
     }
 
-    if (data.email && data.email !== user.email) {
-      const existingEmail = await this.userRepository.findByEmail(data.email);
-      if (existingEmail && existingEmail.id !== user.id) {
-        const err = new Error('Email já cadastrado');
-        err.statusCode = 409;
-        throw err;
+    const normalizedUpdateEmail =
+      typeof updatePayload.email === 'undefined' ? undefined : InputNormalizer.normalizeEmail(updatePayload.email);
+    const normalizedUpdateRa =
+      typeof updatePayload.ra === 'undefined' ? undefined : InputNormalizer.normalizeDigits(updatePayload.ra, 20);
+
+    if (
+      normalizedUpdateEmail &&
+      (!InputNormalizer.isValidEmail(normalizedUpdateEmail) || normalizedUpdateEmail !== targetUser.email)
+    ) {
+      const existingByEmail = await this.userRepository.findByEmail(normalizedUpdateEmail);
+      if (existingByEmail && existingByEmail.id !== targetUser.id) {
+        throw HttpError.conflict('Email já cadastrado');
       }
     }
 
-    if (typeof data.ra !== 'undefined' && data.ra !== user.ra && data.ra !== null) {
-      const existingRa = await this.userRepository.findByRa(data.ra);
-      if (existingRa && existingRa.id !== user.id) {
-        const err = new Error('RA já cadastrado');
-        err.statusCode = 409;
-        throw err;
+    if (
+      typeof normalizedUpdateRa !== 'undefined' &&
+      normalizedUpdateRa !== targetUser.ra &&
+      normalizedUpdateRa !== null
+    ) {
+      const existingByRa = await this.userRepository.findByRa(normalizedUpdateRa);
+      if (existingByRa && existingByRa.id !== targetUser.id) {
+        throw HttpError.conflict('RA já cadastrado');
       }
     }
 
-    const updateData = {};
-    if (typeof data.name !== 'undefined') updateData.name = data.name;
-    if (typeof data.email !== 'undefined') updateData.email = data.email;
-    if (typeof data.ra !== 'undefined') updateData.ra = data.ra || null;
-    if (typeof data.course !== 'undefined') updateData.course = data.course || null;
-    if (typeof data.gender !== 'undefined') updateData.gender = data.gender || null;
-    if (typeof data.age !== 'undefined') {
-      updateData.age = data.age === null || data.age === '' ? null : parseInt(data.age, 10);
+    const persistedPayload = {};
+    if (typeof updatePayload.name !== 'undefined') {
+      persistedPayload.name = InputNormalizer.normalizeOptionalString(updatePayload.name);
     }
-    if (typeof data.phone !== 'undefined') updateData.phone = data.phone || null;
-    if (typeof data.cep !== 'undefined') updateData.cep = data.cep || null;
-    if (typeof data.role !== 'undefined') updateData.role = data.role;
-    if (typeof data.isAdmin !== 'undefined') updateData.isAdmin = !!data.isAdmin;
-    if (typeof data.isBlocked !== 'undefined') updateData.isBlocked = !!data.isBlocked;
+    if (typeof updatePayload.email !== 'undefined') {
+      if (normalizedUpdateEmail && !InputNormalizer.isValidEmail(normalizedUpdateEmail)) {
+        throw HttpError.badRequest('Informe um e-mail válido');
+      }
+      persistedPayload.email = normalizedUpdateEmail || null;
+    }
+    if (typeof updatePayload.ra !== 'undefined') persistedPayload.ra = normalizedUpdateRa || null;
+    if (typeof updatePayload.course !== 'undefined') {
+      persistedPayload.course = InputNormalizer.normalizeOptionalString(updatePayload.course);
+    }
+    if (typeof updatePayload.gender !== 'undefined') {
+      persistedPayload.gender = InputNormalizer.normalizeOptionalString(updatePayload.gender);
+    }
+    if (typeof updatePayload.age !== 'undefined') {
+      persistedPayload.age = updatePayload.age === null || updatePayload.age === ''
+        ? null
+        : parseInt(updatePayload.age, 10);
+    }
+    if (typeof updatePayload.phone !== 'undefined') {
+      persistedPayload.phone = InputNormalizer.normalizeDigits(updatePayload.phone, 15) || null;
+    }
+    if (typeof updatePayload.cep !== 'undefined') {
+      persistedPayload.cep = InputNormalizer.normalizeDigits(updatePayload.cep, 8) || null;
+    }
+    if (typeof updatePayload.role !== 'undefined') persistedPayload.role = updatePayload.role;
+    if (typeof updatePayload.isAdmin !== 'undefined') persistedPayload.isAdmin = !!updatePayload.isAdmin;
+    if (typeof updatePayload.isBlocked !== 'undefined') persistedPayload.isBlocked = !!updatePayload.isBlocked;
 
-    return this.userRepository.updateById(userId, updateData);
+    return this.userRepository.updateById(userId, persistedPayload);
   }
 
   async deleteUser(userId) {
-    const user = await this.userRepository.findById(userId);
+    const targetUser = await this.userRepository.findById(userId);
 
-    if (!user) {
-      const err = new Error('Usuário não encontrado');
-      err.statusCode = 404;
-      throw err;
+    if (!targetUser) {
+      throw HttpError.notFound('Usuário não encontrado');
     }
 
-    if (user.role === 'ADMIN' || user.isAdmin) {
-      const err = new Error('Não é possível excluir administradores');
-      err.statusCode = 403;
-      throw err;
+    if (targetUser.role === 'ADMIN' || targetUser.isAdmin) {
+      throw HttpError.forbidden('Não é possível excluir administradores');
     }
 
     await this.userRepository.deleteById(userId);
     return { success: true };
   }
 
-  async disableVehicle(vehicleId, disable = true, disabledReason) {
-    const vehicle = await this.vehicleRepository.findById(vehicleId);
-    if (!vehicle) {
-      const err = new Error('Veículo não encontrado');
-      err.statusCode = 404;
-      throw err;
+  async disableVehicle(vehicleId, shouldDisable = true, disabledReason) {
+    const vehicleRecord = await this.vehicleRepository.findById(vehicleId);
+    if (!vehicleRecord) {
+      throw HttpError.notFound('Veículo não encontrado');
     }
 
-    const updatePayload = { isDisabled: !!disable };
-    if (disable && disabledReason != null && disabledReason !== '') {
+    const updatePayload = { isDisabled: !!shouldDisable };
+    if (shouldDisable && disabledReason != null && disabledReason !== '') {
       updatePayload.disabledReason = disabledReason;
-    } else if (!disable) {
+    } else if (!shouldDisable) {
       updatePayload.disabledReason = null;
     }
 
     return this.vehicleRepository.updateDisableStatus(vehicleId, updatePayload);
   }
 
-  async disableReview(reviewId, disable = true, disabledReason) {
-    const review = await this.reviewRepository.findById(reviewId);
-    if (!review) {
-      const err = new Error('Avaliação não encontrada');
-      err.statusCode = 404;
-      throw err;
+  async disableReview(reviewId, shouldDisable = true, disabledReason) {
+    const reviewRecord = await this.reviewRepository.findById(reviewId);
+    if (!reviewRecord) {
+      throw HttpError.notFound('Avaliação não encontrada');
     }
 
-    const updatePayload = { isDisabled: !!disable };
-    if (disable && disabledReason != null && disabledReason !== '') {
+    const updatePayload = { isDisabled: !!shouldDisable };
+    if (shouldDisable && disabledReason != null && disabledReason !== '') {
       updatePayload.disabledReason = disabledReason;
-    } else if (!disable) {
+    } else if (!shouldDisable) {
       updatePayload.disabledReason = null;
     }
 

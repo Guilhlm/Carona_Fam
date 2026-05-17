@@ -20,14 +20,30 @@ enum Gender {
 }
 
 enum RideStatus {
-  ACTIVE
-  FINISHED
+  WAITING_DRIVER
+  DRIVER_ACCEPTED
+  DRIVER_ARRIVING
+  IN_PROGRESS
+  COMPLETED
   CANCELLED
 }
 
 enum RidePassengerStatus {
   PENDING
   CONFIRMED
+  CANCELLED
+}
+
+enum CancellationActor {
+  PASSENGER
+  DRIVER
+  ADMIN
+  SYSTEM
+}
+
+enum ScheduledRideStatus {
+  OPEN
+  REQUESTED
   CANCELLED
 }
 
@@ -51,10 +67,13 @@ model User {
   updatedAt    DateTime @updatedAt
 
   vehiclesAsDriver   Vehicle[]
-  ridesAsDriver      Ride[]
-  ridePassengers     RidePassenger[]
-  reviewsGiven       Review[] @relation("Reviewer")
-  reviewsReceived    Review[] @relation("Reviewed")
+  ridesAsDriver           Ride[]           @relation("RideDriver")
+  ridesAsRequester        Ride[]           @relation("RideRequester")
+  scheduledRidesCreated   ScheduledRide[]
+  scheduledRideJoins      ScheduledRidePassenger[]
+  ridePassengers          RidePassenger[]
+  reviewsGiven       Review[]        @relation("Reviewer")
+  reviewsReceived    Review[]        @relation("Reviewed")
 }
 
 model Vehicle {
@@ -76,24 +95,106 @@ model Vehicle {
 }
 
 model Ride {
-  id             String     @id @default(cuid())
-  driverId       String
-  vehicleId      String
-  origin         String
-  destination    String
-  distanceKm     Decimal?   @db.Decimal(6, 2)
-  suggestedValue Decimal?   @db.Decimal(8, 2)
-  departureAt    DateTime
-  arrivalAt      DateTime
-  availableSeats Int
-  status         RideStatus @default(ACTIVE)
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  id                  String             @id @default(cuid())
+  requesterId         String
+  driverId            String?
+  vehicleId           String?
+  origin              String
+  destination         String
+  originLat           Decimal?           @db.Decimal(10, 7)
+  originLng           Decimal?           @db.Decimal(10, 7)
+  destinationLat      Decimal?           @db.Decimal(10, 7)
+  destinationLng      Decimal?           @db.Decimal(10, 7)
+  distanceKm          Decimal?           @db.Decimal(6, 2)
+  estimatedTimeMin    Int?
+  estimatedValue      Decimal?           @db.Decimal(8, 2)
+  actualValue         Decimal?           @db.Decimal(8, 2)
+  departureAt         DateTime?
+  arrivalAt           DateTime?
+  availableSeats      Int                @default(1)
+  status              RideStatus         @default(WAITING_DRIVER)
+  requestedAt         DateTime           @default(now())
+  acceptedAt          DateTime?
+  arrivingAt          DateTime?
+  startedAt           DateTime?
+  completedAt         DateTime?
+  cancelledAt         DateTime?
+  cancellationReason  String?
+  cancelledBy         CancellationActor?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
 
-  driver     User           @relation(fields: [driverId], references: [id], onDelete: Cascade)
-  vehicle    Vehicle        @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  requester  User            @relation("RideRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  driver     User?           @relation("RideDriver", fields: [driverId], references: [id], onDelete: SetNull)
+  vehicle    Vehicle?        @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
   passengers RidePassenger[]
+  stops      RideStop[]
   reviews    Review[]
+  scheduledRide ScheduledRide?
+
+  @@index([status])
+  @@index([requesterId])
+  @@index([driverId])
+}
+
+model ScheduledRide {
+  id                 String              @id @default(cuid())
+  creatorId          String
+  origin             String?
+  destination        String
+  originLat          Decimal?            @db.Decimal(10, 7)
+  originLng          Decimal?            @db.Decimal(10, 7)
+  destinationLat     Decimal?            @db.Decimal(10, 7)
+  destinationLng     Decimal?            @db.Decimal(10, 7)
+  departureAt        DateTime
+  returnAt           DateTime?
+  passengers         Int                 @default(1)
+  allowNewPassengers Boolean             @default(false)
+  status             ScheduledRideStatus @default(OPEN)
+  rideId             String?             @unique
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  creator           User                     @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  ride              Ride?                    @relation(fields: [rideId], references: [id], onDelete: SetNull)
+  joinedPassengers  ScheduledRidePassenger[]
+
+  @@index([creatorId])
+  @@index([departureAt])
+  @@index([allowNewPassengers])
+  @@index([status])
+}
+
+model ScheduledRidePassenger {
+  id              String   @id @default(cuid())
+  scheduledRideId String
+  passengerId     String
+  pickupAddress   String
+  pickupLat       Decimal  @db.Decimal(10, 7)
+  pickupLng       Decimal  @db.Decimal(10, 7)
+  createdAt       DateTime @default(now())
+
+  scheduledRide ScheduledRide @relation(fields: [scheduledRideId], references: [id], onDelete: Cascade)
+  passenger     User          @relation(fields: [passengerId], references: [id], onDelete: Cascade)
+
+  @@unique([scheduledRideId, passengerId])
+  @@index([scheduledRideId])
+  @@index([passengerId])
+}
+
+model RideStop {
+  id        String   @id @default(cuid())
+  rideId    String
+  ordering  Int
+  address   String
+  lat       Decimal? @db.Decimal(10, 7)
+  lng       Decimal? @db.Decimal(10, 7)
+  reachedAt DateTime?
+
+  ride Ride @relation(fields: [rideId], references: [id], onDelete: Cascade)
+
+  @@unique([rideId, ordering])
+  @@index([rideId])
 }
 
 model RidePassenger {

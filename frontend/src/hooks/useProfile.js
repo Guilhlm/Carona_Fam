@@ -2,6 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { getMe, updateMe } from '../services/userService';
+import {
+  isValidEmail,
+  maxFileSizeValidator,
+  normalizeDigits,
+  normalizeEmail,
+} from '../utils/validation';
 
 const EDITABLE_FIELDS = [
   'name',
@@ -13,6 +19,8 @@ const EDITABLE_FIELDS = [
   'phone',
   'cep',
 ];
+const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const MAX_IMAGE_UPLOAD_BYTES = 2 * 1024 * 1024;
 
 const emptyForm = {
   name: '',
@@ -136,6 +144,16 @@ export function useProfile() {
       const file = e.target.files?.[0];
       if (!file) return;
 
+      if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
+        showToast('Formato inválido. Use imagem JPG, PNG ou WEBP.', 'error');
+        return;
+      }
+
+      if (!maxFileSizeValidator(file, MAX_IMAGE_UPLOAD_BYTES)) {
+        showToast('A imagem deve ter no máximo 2MB.', 'error');
+        return;
+      }
+
       const reader = new FileReader();
 
       reader.onload = async () => {
@@ -184,6 +202,12 @@ export function useProfile() {
         return;
       }
 
+      const normalizedEmail = normalizeEmail(form.email);
+      if (!isValidEmail(normalizedEmail)) {
+        showToast('Informe um e-mail válido.', 'error');
+        return;
+      }
+
       if (!form.age) {
         showToast('Idade é obrigatória.', 'error');
         return;
@@ -202,7 +226,7 @@ export function useProfile() {
         showToast('Telefone é obrigatório.', 'error');
         return;
       }
-      const numericPhone = form.phone.replace(/\D/g, '');
+      const numericPhone = normalizeDigits(form.phone, 15);
       if (numericPhone.length < 8 || numericPhone.length > 15) {
         showToast('Telefone deve conter entre 8 e 15 dígitos numéricos.', 'error');
         return;
@@ -212,7 +236,7 @@ export function useProfile() {
         showToast('CEP é obrigatório.', 'error');
         return;
       }
-      const numericCep = form.cep.replace(/\D/g, '');
+      const numericCep = normalizeDigits(form.cep, 8);
       if (!/^\d{8}$/.test(numericCep)) {
         showToast('CEP deve conter exatamente 8 dígitos numéricos.', 'error');
         return;
@@ -221,10 +245,10 @@ export function useProfile() {
       setSaving(true);
       try {
         const payload = {
-          name: form.name,
-          email: form.email,
-          ra: form.ra,
-          course: form.course,
+          name: trimmedName,
+          email: normalizedEmail,
+          ra: normalizeDigits(form.ra, 20),
+          course: form.course?.trim() || null,
           gender: form.gender,
           age: form.age,
           phone: numericPhone,

@@ -2,7 +2,9 @@ import { useAdminUsers } from '../../hooks/admin/useAdminUsers';
 import AdminFilters from './components/AdminFilters';
 import { buildSelects, USERS_SELECTS } from './components/adminFilterConfig';
 import AdminCard from './components/AdminCard';
-import AdminPagination from './AdminPagination';
+import AdminPageShell from './components/AdminPageShell';
+import AdminListSection from './components/AdminListSection';
+import { ADMIN_CARD_GRID_CLASS } from './components/adminConstants';
 
 export default function AdminUsersPage() {
   const {
@@ -29,44 +31,35 @@ export default function AdminUsersPage() {
   const selects = buildSelects(USERS_SELECTS, filters, setFilter);
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-lg md:text-xl font-semibold text-text-main">Usuários</h1>
-      </div>
-
-      <AdminFilters
-        searchPlaceholder="Buscar por nome, email ou RA"
-        searchValue={search}
-        onSearchChange={setSearch}
-        selects={selects}
-        loading={loading}
-      />
-
-      {loading ? (
-        <p className="text-xs md:text-sm text-text-muted">Carregando...</p>
-      ) : users.length === 0 ? (
-        <p className="text-xs md:text-sm text-text-muted">Nenhum usuário encontrado com os filtros atuais.</p>
-      ) : (
-        <div className="flex flex-col gap-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {users.map((user) => (
+    <AdminPageShell
+      title="Usuários"
+      loading={loading}
+      isEmpty={!loading && users.length === 0}
+      emptyMessage="Nenhum usuário encontrado com os filtros atuais."
+      filters={
+        <AdminFilters
+          searchPlaceholder="Buscar por nome, email ou RA"
+          searchValue={search}
+          onSearchChange={setSearch}
+          selects={selects}
+          loading={loading}
+        />
+      }
+    >
+      <AdminListSection pagination={pagination} page={page} onPageChange={setPage}>
+        <div className={ADMIN_CARD_GRID_CLASS}>
+          {users.map((user) => (
+            <div key={user.id} className="h-full min-h-0">
               <AdminCard
-                key={user.id}
                 variant="user"
                 item={user}
                 onToggleAdmin={handleToggleAdmin}
                 onToggleBlock={handleBlock}
               />
-            ))}
-          </div>
-
-          <AdminPagination
-            pagination={pagination}
-            page={page}
-            onPageChange={setPage}
-          />
+            </div>
+          ))}
         </div>
-      )}
-    </div>
+      </AdminListSection>
+    </AdminPageShell>
   );
 }

@@ -1,6 +1,6 @@
 import Button from '../../components/ui/Button';
 
-export default function AdminPagination({ pagination, page, onPageChange }) {
+export default function AdminPagination({ pagination, page, onPageChange, className = '' }) {
   if (!pagination || pagination.totalPages <= 1) {
     return null;
   }
@@ -9,7 +9,9 @@ export default function AdminPagination({ pagination, page, onPageChange }) {
   const canGoNext = page < pagination.totalPages;
 
   return (
-    <div className="pt-5 flex justify-between items-center text-xs md:text-sm text-text-muted">
+    <div
+      className={`pt-3 flex justify-between items-center text-xs md:text-sm text-text-muted ${className}`.trim()}
+    >
       <p>
         Página {pagination.page} de {pagination.totalPages}
       </p>

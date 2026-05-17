@@ -14,12 +14,12 @@ class RideRepository {
       return null;
     }
     if (order === 'date_desc') {
-      return { departureAt: 'desc' };
+      return { requestedAt: 'desc' };
     }
     if (order === 'date_asc') {
-      return { departureAt: 'asc' };
+      return { requestedAt: 'asc' };
     }
-    return { departureAt: 'asc' };
+    return { requestedAt: 'desc' };
   }
 
   async listRides(filters = {}) {
@@ -40,6 +40,7 @@ class RideRepository {
         { origin: { contains: term, mode: 'insensitive' } },
         { destination: { contains: term, mode: 'insensitive' } },
         { driver: { name: { contains: term, mode: 'insensitive' } } },
+        { requester: { name: { contains: term, mode: 'insensitive' } } },
         { passengers: { some: { passenger: { name: { contains: term, mode: 'insensitive' } } } } },
       ];
     } else {
@@ -52,8 +53,10 @@ class RideRepository {
     }
 
     const include = {
+      requester: { select: { id: true, name: true, email: true } },
       driver: { select: { id: true, name: true, email: true } },
       vehicle: { select: { brand: true, model: true, plate: true } },
+      stops: { orderBy: { ordering: 'asc' } },
       passengers: {
         include: {
           passenger: { select: { id: true, name: true } },
@@ -66,14 +69,14 @@ class RideRepository {
         this.prisma.ride.findMany({
           where,
           include,
-          orderBy: { departureAt: 'asc' },
+          orderBy: { requestedAt: 'desc' },
         }),
         this.prisma.ride.count({ where }),
       ]);
 
       const sorted = [...allRides].sort((a, b) => {
-        const nameA = a.passengers?.[0]?.passenger?.name ?? '';
-        const nameB = b.passengers?.[0]?.passenger?.name ?? '';
+        const nameA = a.passengers?.[0]?.passenger?.name ?? a.requester?.name ?? '';
+        const nameB = b.passengers?.[0]?.passenger?.name ?? b.requester?.name ?? '';
         return String(nameA).localeCompare(String(nameB));
       });
 
@@ -121,10 +124,17 @@ class RideRepository {
   cancelRide(rideId) {
     return this.prisma.ride.update({
       where: { id: rideId },
-      data: { status: 'CANCELLED' },
+      data: {
+        status: 'CANCELLED',
+        cancelledAt: new Date(),
+        cancelledBy: 'ADMIN',
+        cancellationReason: 'Cancelada por administrador',
+      },
       include: {
+        requester: { select: { id: true, name: true } },
         driver: { select: { id: true, name: true } },
         vehicle: { select: { brand: true, model: true, plate: true } },
+        stops: { orderBy: { ordering: 'asc' } },
       },
     });
   }

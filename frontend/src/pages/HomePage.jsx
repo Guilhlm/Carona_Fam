@@ -5,11 +5,16 @@ import AddressAutocompleteField from '../components/ride/AddressAutocompleteFiel
 import PreviousTripsList from '../components/PreviousTripsList';
 import ScheduleModal from '../components/ScheduleModal';
 import ScheduledRidesList from '../components/ScheduledRidesList';
+import OpenRidesForNowSection from '../components/ride/OpenRidesForNowSection';
+import ActiveRideBanner from '../components/ride/ActiveRideBanner';
+import JoinedCaronaRidesList from '../components/JoinedCaronaRidesList';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useSchedule } from '../hooks/useSchedule';
 import * as rideService from '../services/rideService';
-import { SCHEDULED_RIDES_KEY, safeParseScheduledRides } from '../utils/scheduledRides';
+import { ADDRESS_OUT_OF_RADIUS_MESSAGE } from '../utils/campinasGeo';
+import * as scheduledRideService from '../services/scheduledRideService';
+import { isOpenScheduledRide } from '../utils/scheduledRide';
 
 const destinationInputClass =
   'w-full rounded-xl border border-border-muted bg-surface-input/90 backdrop-blur-md pl-10 pr-10 py-3 text-sm text-text-main placeholder:text-text-main/45 outline-none focus:border-brand';
@@ -20,7 +25,7 @@ export default function HomePage() {
   const navigate = useNavigate();
   const isDriver = user?.role === 'DRIVER';
 
-  const [mode, setMode] = useState(isDriver ? 'SEARCH' : 'SEARCH');
+  const [mode, setMode] = useState('SEARCH');
   const [query, setQuery] = useState('');
   const [selectedDestination, setSelectedDestination] = useState(null);
 
@@ -28,6 +33,9 @@ export default function HomePage() {
   const [ridesLoading, setRidesLoading] = useState(true);
 
   const [scheduledRides, setScheduledRides] = useState([]);
+  const [joinedCaronaRides, setJoinedCaronaRides] = useState([]);
+  const [scheduledRequestingId, setScheduledRequestingId] = useState(null);
+  const [scheduledDeletingId, setScheduledDeletingId] = useState(null);
 
   const [showOnlyScheduled, setShowOnlyScheduled] = useState(false);
 
@@ -35,21 +43,42 @@ export default function HomePage() {
     scheduleOpen,
     schedule,
     setSchedule,
+    locatingOrigin,
     openScheduleModal,
     closeScheduleModal,
     handleConfirmSchedule,
+    useMyLocationForOrigin,
   } = useSchedule({
-    query,
     selectedDestination,
-    setSelectedDestination,
-    mode,
     showToast,
     setScheduledRides,
   });
 
   useEffect(() => {
-    setScheduledRides(safeParseScheduledRides(localStorage.getItem(SCHEDULED_RIDES_KEY)));
-  }, []);
+    if (!isAuthenticated) {
+      setScheduledRides([]);
+      return;
+    }
+    let mounted = true;
+    Promise.all([
+      scheduledRideService.listMyScheduledRides(),
+      scheduledRideService.listJoinedScheduledRides(),
+    ])
+      .then(([mine, joined]) => {
+        if (!mounted) return;
+        setScheduledRides((Array.isArray(mine) ? mine : []).filter(isOpenScheduledRide));
+        setJoinedCaronaRides(Array.isArray(joined) ? joined : []);
+      })
+      .catch(() => {
+        if (!mounted) {
+          setScheduledRides([]);
+          setJoinedCaronaRides([]);
+        }
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -92,12 +121,38 @@ export default function HomePage() {
     });
   }, [rides]);
 
-  const destinationLabelForModal = selectedDestination?.label || query.trim();
+  const handleScheduledRequestNow = async (ride) => {
+    setScheduledRequestingId(ride.id);
+    try {
+      const created = await scheduledRideService.convertScheduledRideToRide(ride.id);
+      showToast('Corrida solicitada! Aguardando motorista.', 'success');
+      setScheduledRides((prev) =>
+        (Array.isArray(prev) ? prev : []).filter((r) => r.id !== ride.id)
+      );
+      navigate(`/home/rides/${created.id}/waiting`);
+    } catch (err) {
+      const msg = err?.response?.data?.error || 'Não foi possível solicitar agora.';
+      showToast(msg, 'error');
+    } finally {
+      setScheduledRequestingId(null);
+    }
+  };
 
-  const handleScheduledRideClick = (ride) => {
-    navigate('/home/rides/request', {
-      state: { scheduledRide: ride },
-    });
+  const handleScheduledDelete = async (ride) => {
+    setScheduledDeletingId(ride.id);
+    try {
+      await scheduledRideService.deleteScheduledRide(ride.id);
+      setScheduledRides((prev) => (Array.isArray(prev) ? prev : []).filter((r) => r.id !== ride.id));
+      showToast('Viagem agendada excluída.', 'success');
+    } catch (err) {
+      let msg = err?.response?.data?.error;
+      if (!msg && err?.response?.status === 404) {
+        msg = 'Não foi possível excluir (servidor desatualizado). Reinicie o backend.';
+      }
+      showToast(msg || 'Não foi possível excluir a viagem.', 'error');
+    } finally {
+      setScheduledDeletingId(null);
+    }
   };
 
   if (!isAuthenticated) {
@@ -133,8 +188,18 @@ export default function HomePage() {
         onConfirm={handleConfirmSchedule}
         schedule={schedule}
         setSchedule={setSchedule}
-        destinationLabel={destinationLabelForModal}
+        onOutOfRadius={() => showToast(ADDRESS_OUT_OF_RADIUS_MESSAGE, 'error')}
+        onUseMyLocation={useMyLocationForOrigin}
+        locatingOrigin={locatingOrigin}
       />
+
+      <ActiveRideBanner />
+
+      {mode !== 'DRIVE' && (
+        <JoinedCaronaRidesList
+          rides={joinedCaronaRides.filter((r) => r.status === 'REQUESTED' && r.rideId)}
+        />
+      )}
 
       <section className="mb-5">
         <div className="grid grid-cols-2 gap-2 rounded-xl border border-border-muted p-1 bg-surface-input/30">
@@ -178,48 +243,79 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="mb-8 relative z-30">
-        <div className="rounded-xl border border-border-muted bg-surface-input/30 p-2 flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-2">
-          <div className="min-w-0 flex-1">
-            <AddressAutocompleteField
-              value={query}
-              onChange={(v) => {
-                setQuery(v);
-                setSelectedDestination(null);
-              }}
-              onPick={({ label, lon, lat }) => {
-                setQuery(label);
-                setSelectedDestination({
-                  label,
-                  value: label,
-                  coordinates: [lon, lat],
-                });
-              }}
-              placeholder="Para onde vamos?"
-              icon={<FiSearch className="h-4 w-4" />}
-              inputClassName={destinationInputClass}
-              minChars={3}
-            />
+      {mode !== 'DRIVE' && (
+        <section className="mb-8 relative z-30">
+          <div className="rounded-xl border border-border-muted bg-surface-input/30 p-2 flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-2">
+            <div className="min-w-0 flex-1">
+              <AddressAutocompleteField
+                value={query}
+                onChange={(v) => {
+                  setQuery(v);
+                  setSelectedDestination(null);
+                }}
+                onPick={({ label, lon, lat }) => {
+                  setQuery(label);
+                  setSelectedDestination({
+                    label,
+                    value: label,
+                    coordinates: [lon, lat],
+                  });
+                }}
+                onOutOfRadius={() => showToast(ADDRESS_OUT_OF_RADIUS_MESSAGE, 'error')}
+                placeholder="Para onde vamos?"
+                icon={<FiSearch className="h-4 w-4" />}
+                inputClassName={destinationInputClass}
+                minChars={3}
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={openScheduleModal}
+              className="h-[46px] shrink-0 self-stretch sm:self-auto sm:h-[46px] px-4 rounded-xl bg-brand text-white text-xs font-medium hover:bg-brand/80 transition-colors whitespace-nowrap"
+            >
+              Agendar Corrida
+            </button>
           </div>
+        </section>
+      )}
 
-          <button
-            type="button"
-            onClick={openScheduleModal}
-            className="h-[46px] shrink-0 self-stretch sm:self-auto sm:h-[46px] px-4 rounded-xl bg-brand text-white text-xs font-medium hover:bg-brand/80 transition-colors whitespace-nowrap"
-          >
-            Agendar Corrida
-          </button>
-        </div>
-      </section>
+      {isDriver && mode === 'DRIVE' && (
+        <>
+          <OpenRidesForNowSection />
+          <section className="mb-6">
+            <button
+              type="button"
+              onClick={() => navigate('/home/rides/scheduled')}
+              className="w-full rounded-xl border border-border-muted bg-surface-input/20 px-4 py-3 text-left hover:bg-surface-input/30 transition-colors"
+            >
+              <span className="inline-flex items-center gap-2 text-sm font-medium text-gray-100">
+                <FiCalendar className="h-4 w-4 text-text-main/80" />
+                Ver todas as viagens agendadas
+              </span>
+              <p className="mt-1 text-xs text-text-main/60">
+                Corridas agendadas por todos os usuários na plataforma.
+              </p>
+            </button>
+          </section>
+        </>
+      )}
 
-      <ScheduledRidesList
-        rides={scheduledRides}
-        showOnlyScheduled={showOnlyScheduled}
-        onShowPreviousTrips={() => setShowOnlyScheduled(false)}
-        onRideClick={handleScheduledRideClick}
-      />
+      {mode !== 'DRIVE' && (
+        <ScheduledRidesList
+          rides={scheduledRides}
+          showOnlyScheduled={showOnlyScheduled}
+          onShowPreviousTrips={() => setShowOnlyScheduled(false)}
+          onRequestNow={handleScheduledRequestNow}
+          onDelete={handleScheduledDelete}
+          requestingId={scheduledRequestingId}
+          deletingId={scheduledDeletingId}
+        />
+      )}
 
-      {!showOnlyScheduled && <PreviousTripsList ridesLoading={ridesLoading} trips={previousTrips} />}
+      {mode !== 'DRIVE' && !showOnlyScheduled && (
+        <PreviousTripsList ridesLoading={ridesLoading} trips={previousTrips} />
+      )}
 
       <section>
         <h1> </h1>
@@ -238,12 +334,7 @@ export default function HomePage() {
 
           <button
             type="button"
-            onClick={() => {
-              setShowOnlyScheduled(true);
-              window.requestAnimationFrame(() => {
-                document.getElementById('scheduled-rides-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              });
-            }}
+            onClick={() => navigate('/home/rides/scheduled')}
             className="rounded-xl border border-border-muted bg-surface-input/20 p-3 text-left hover:bg-surface-input/30 transition-colors"
           >
             <div className="w-9 h-9 rounded-full border border-border-muted bg-black/20 flex items-center justify-center mb-2">

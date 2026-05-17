@@ -1,3 +1,17 @@
+const InputNormalizer = require('../utils/InputNormalizer');
+const HttpError = require('../utils/HttpError');
+
+const DEFAULT_USER_ROLE = 'USER';
+const REGISTERED_USER_SELECT = {
+  id: true,
+  email: true,
+  name: true,
+  ra: true,
+  role: true,
+  isAdmin: true,
+  createdAt: true,
+};
+
 class AuthService {
   constructor({ authRepository, hashPassword, comparePassword, signToken }) {
     this.authRepository = authRepository;
@@ -6,123 +20,113 @@ class AuthService {
     this.signToken = signToken;
   }
 
-  async register(data) {
-    const { email, password, name, ra, course, gender, age, phone, cep, role } = data;
+  async register(registrationPayload) {
+    const {
+      email,
+      password,
+      name,
+      ra,
+      course,
+      gender,
+      age,
+      phone,
+      cep,
+    } = registrationPayload;
 
-    const existing = await this.authRepository.findByEmail(email);
+    const normalizedEmail = InputNormalizer.normalizeEmail(email);
+    const normalizedRa = InputNormalizer.normalizeDigits(ra, 20);
 
-    if (existing) {
-      const err = new Error('Email já cadastrado');
-      err.statusCode = 409;
-      throw err;
+    const existingByEmail = await this.authRepository.findByEmail(normalizedEmail);
+    if (existingByEmail) {
+      throw HttpError.conflict('Email já cadastrado');
     }
 
-    if (ra) {
-      const existingRa = await this.authRepository.findByRa(ra);
-      if (existingRa) {
-        const err = new Error('RA já cadastrado');
-        err.statusCode = 409;
-        throw err;
+    if (normalizedRa) {
+      const existingByRa = await this.authRepository.findByRa(normalizedRa);
+      if (existingByRa) {
+        throw HttpError.conflict('RA já cadastrado');
       }
     }
 
     const passwordHash = await this.hashPassword(password);
-    const userRole = role || 'USER';
 
-    const user = await this.authRepository.createUser({
+    const createdUser = await this.authRepository.createUser({
       data: {
-        email,
+        email: normalizedEmail,
         passwordHash,
-        name: name || email.split('@')[0],
-        ra: ra || null,
-        course: course || null,
-        gender: gender || null,
+        name: InputNormalizer.normalizeOptionalString(name) || normalizedEmail.split('@')[0],
+        ra: normalizedRa || null,
+        course: InputNormalizer.normalizeOptionalString(course),
+        gender: InputNormalizer.normalizeOptionalString(gender),
         age: age ? parseInt(age, 10) : null,
-        phone: phone || null,
-        cep: cep || null,
-        role: userRole,
+        phone: InputNormalizer.normalizeDigits(phone, 15) || null,
+        cep: InputNormalizer.normalizeDigits(cep, 8) || null,
+        role: DEFAULT_USER_ROLE,
       },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        ra: true,
-        role: true,
-        isAdmin: true,
-        createdAt: true,
-      },
+      select: REGISTERED_USER_SELECT,
     });
 
-    const token = this.signToken({ sub: user.id, role: user.role });
-    return { user, token };
+    const accessToken = this.signToken({ sub: createdUser.id, role: createdUser.role });
+    return { user: createdUser, token: accessToken };
   }
 
   async login(email, password) {
-    const user = await this.authRepository.findByEmail(email);
+    const normalizedEmail = InputNormalizer.normalizeEmail(email);
+    const foundUser = await this.authRepository.findByEmail(normalizedEmail);
 
-    if (!user) {
-      const err = new Error('Email ou senha inválidos');
-      err.statusCode = 401;
-      throw err;
+    if (!foundUser) {
+      throw HttpError.unauthorized('Email ou senha inválidos');
     }
 
-    if (user.isBlocked) {
-      const err = new Error('Usuário bloqueado');
-      err.statusCode = 403;
-      throw err;
+    if (foundUser.isBlocked) {
+      throw HttpError.forbidden('Usuário bloqueado');
     }
 
-    const valid = await this.comparePassword(password, user.passwordHash);
-    if (!valid) {
-      const err = new Error('Email ou senha inválidos');
-      err.statusCode = 401;
-      throw err;
+    const isPasswordValid = await this.comparePassword(password, foundUser.passwordHash);
+    if (!isPasswordValid) {
+      throw HttpError.unauthorized('Email ou senha inválidos');
     }
 
-    const token = this.signToken({ sub: user.id, role: user.role });
-    const userData = {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      ra: user.ra,
-      role: user.role,
-      isAdmin: user.isAdmin,
+    const accessToken = this.signToken({ sub: foundUser.id, role: foundUser.role });
+    const publicUser = {
+      id: foundUser.id,
+      email: foundUser.email,
+      name: foundUser.name,
+      ra: foundUser.ra,
+      role: foundUser.role,
+      isAdmin: foundUser.isAdmin,
     };
 
-    return { user: userData, token };
+    return { user: publicUser, token: accessToken };
   }
 
   async resetPasswordWithEmailAndRa(email, ra, newPassword) {
-    const user = await this.authRepository.findByEmail(email);
+    const normalizedEmail = InputNormalizer.normalizeEmail(email);
+    const normalizedRa = InputNormalizer.normalizeDigits(ra, 20);
+    const foundUser = await this.authRepository.findByEmail(normalizedEmail);
 
-    if (!user) {
-      const err = new Error('Usuário não encontrado');
-      err.statusCode = 404;
-      throw err;
+    if (!foundUser) {
+      throw HttpError.badRequest('Não foi possível validar os dados informados');
     }
 
-    if (!user.ra || user.ra !== ra) {
-      const err = new Error('Email e RA não conferem');
-      err.statusCode = 400;
-      throw err;
+    if (!foundUser.ra || foundUser.ra !== normalizedRa) {
+      throw HttpError.badRequest('Não foi possível validar os dados informados');
     }
 
     const passwordHash = await this.hashPassword(newPassword);
-    await this.authRepository.updatePasswordById(user.id, passwordHash);
+    await this.authRepository.updatePasswordById(foundUser.id, passwordHash);
     return { message: 'Senha redefinida com sucesso' };
   }
 
   async changePassword(userId, newPassword) {
-    const user = await this.authRepository.findAuthUserById(userId);
+    const foundUser = await this.authRepository.findAuthUserById(userId);
 
-    if (!user) {
-      const err = new Error('Usuário não encontrado');
-      err.statusCode = 404;
-      throw err;
+    if (!foundUser) {
+      throw HttpError.notFound('Usuário não encontrado');
     }
 
     const passwordHash = await this.hashPassword(newPassword);
-    await this.authRepository.updatePasswordById(user.id, passwordHash);
+    await this.authRepository.updatePasswordById(foundUser.id, passwordHash);
     return { message: 'Senha alterada com sucesso' };
   }
 }

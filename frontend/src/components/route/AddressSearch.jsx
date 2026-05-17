@@ -1,44 +1,33 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect } from 'react';
+import {
+  ADDRESS_OUT_OF_RADIUS_MESSAGE,
+  isWithinCampinas,
+} from '../../utils/campinasGeo';
+import { formatSuggestionAddress, searchAddresses } from '../../utils/nominatim';
 
-export default function AddressSearch({ placeholder, onAddressSelected }) {
-  const [search, setSearch] = useState("");
+export default function AddressSearch({ placeholder, onAddressSelected, onOutOfRadius }) {
+  const [search, setSearch] = useState('');
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
+  const [radiusError, setRadiusError] = useState('');
 
   useEffect(() => {
     if (search.length < 3) {
       setSuggestions([]);
+      setRadiusError('');
       return;
     }
 
     const timer = setTimeout(async () => {
       setLoading(true);
+      setRadiusError('');
       try {
-        const response = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=${search}&bounded=0&viewbox=-47.50,-22.80,-47.20,-22.60&limit=10`,
-        );
-        const data = await response.json();
-
-        const uniqueAddresses = new Set();
-        const filteredData = data.filter((location) => {
-          const street =
-            location.address?.road || location.display_name.split(",")[0];
-          const neighborhood =
-            location.address?.neighbourhood || location.address?.suburb || "";
-
-          const uniqueKey = `${street}-${neighborhood}`;
-
-          if (uniqueAddresses.has(uniqueKey)) {
-            return false;
-          }
-          uniqueAddresses.add(uniqueKey);
-          return true;
-        });
-
-        setSuggestions(filteredData.slice(0, 5));
+        const locations = await searchAddresses(search);
+        setSuggestions(locations.slice(0, 5));
       } catch (error) {
-        console.error("Error fetching address:", error);
+        console.error('Erro ao buscar endereço:', error);
+        setSuggestions([]);
       } finally {
         setLoading(false);
       }
@@ -47,101 +36,105 @@ export default function AddressSearch({ placeholder, onAddressSelected }) {
     return () => clearTimeout(timer);
   }, [search]);
 
-  const formatAddress = (location) => {
-    const ad = location.address;
-    if (!ad) return location.display_name.split(",")[0];
-
-    const street =
-      ad.road ||
-      ad.pedestrian ||
-      ad.suburb ||
-      location.display_name.split(",")[0];
-    const number = ad.house_number ? `, ${ad.house_number}` : "";
-    const neighborhood = ad.neighbourhood || ad.suburb || "";
-
-    return `${street}${number}${neighborhood ? " - " + neighborhood : ""}`;
+  const notifyOutOfRadius = () => {
+    setRadiusError(ADDRESS_OUT_OF_RADIUS_MESSAGE);
+    onOutOfRadius?.(ADDRESS_OUT_OF_RADIUS_MESSAGE);
   };
 
   const selectAddress = (location) => {
-    const cleanAddress = formatAddress(location);
+    const lat = parseFloat(location.lat);
+    const lon = parseFloat(location.lon);
+
+    if (!isWithinCampinas(lat, lon)) {
+      notifyOutOfRadius();
+      return;
+    }
+
+    const cleanAddress = formatSuggestionAddress(location);
 
     setSearch(cleanAddress);
     setSuggestions([]);
     setIsFocused(false);
+    setRadiusError('');
 
-    onAddressSelected([parseFloat(location.lon), parseFloat(location.lat)]);
+    onAddressSelected([lon, lat]);
   };
 
   return (
-    <div style={{ position: "relative", width: "100%" }}>
+    <div style={{ position: 'relative', width: '100%' }}>
       <input
         type="text"
         placeholder={placeholder}
         value={search}
-        onChange={(e) => setSearch(e.target.value)}
+        onChange={(e) => {
+          setSearch(e.target.value);
+          setRadiusError('');
+        }}
         onFocus={() => setIsFocused(true)}
         style={{
-          padding: "10px",
-          width: "100%",
-          boxSizing: "border-box",
-          borderRadius: "4px",
-          border: "1px solid #ccc",
+          padding: '10px',
+          width: '100%',
+          boxSizing: 'border-box',
+          borderRadius: '4px',
+          border: radiusError ? '1px solid #e53e3e' : '1px solid #ccc',
         }}
       />
+
+      {radiusError && (
+        <p style={{ margin: '6px 0 0', fontSize: '12px', color: '#e53e3e' }}>{radiusError}</p>
+      )}
 
       {isFocused && suggestions.length > 0 && (
         <ul
           style={{
-            position: "absolute",
-            top: "100%",
+            position: 'absolute',
+            top: '100%',
             left: 0,
             right: 0,
-            background: "white",
-            border: "1px solid #ccc",
-            borderRadius: "4px",
-            listStyle: "none",
+            background: 'white',
+            border: '1px solid #ccc',
+            borderRadius: '4px',
+            listStyle: 'none',
             padding: 0,
-            margin: "5px 0 0 0",
+            margin: '5px 0 0 0',
             zIndex: 1000,
-            boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
           }}
         >
           {loading && (
-            <li style={{ padding: "10px", color: "#666", fontSize: "13px" }}>
-              Searching...
+            <li style={{ padding: '10px', color: '#666', fontSize: '13px' }}>
+              Buscando...
             </li>
           )}
 
           {suggestions.map((location) => {
-            const shortAddress = formatAddress(location);
+            const shortAddress = formatSuggestionAddress(location);
             const city =
-              location.address.city ||
-              location.address.town ||
-              location.address.village ||
-              "";
+              location.address?.city ||
+              location.address?.town ||
+              location.address?.village ||
+              '';
 
             return (
               <li
                 key={location.place_id}
                 onClick={() => selectAddress(location)}
                 style={{
-                  padding: "10px",
-                  cursor: "pointer",
-                  borderBottom: "1px solid #eee",
+                  padding: '10px',
+                  cursor: 'pointer',
+                  borderBottom: '1px solid #eee',
                 }}
                 onMouseOver={(e) =>
-                  (e.currentTarget.style.background = "#f3f4f6")
+                  (e.currentTarget.style.background = '#f3f4f6')
                 }
-                onMouseOut={(e) => (e.currentTarget.style.background = "white")}
+                onMouseOut={(e) => (e.currentTarget.style.background = 'white')}
               >
-                <div
-                  style={{ fontSize: "14px", fontWeight: "500", color: "#333" }}
-                >
+                <div style={{ fontSize: '14px', fontWeight: '500', color: '#333' }}>
                   {shortAddress}
                 </div>
-                <div style={{ fontSize: "11px", color: "#999" }}>
-                  {city}{" "}
-                  {location.address.state ? `- ${location.address.state}` : ""}
+                <div style={{ fontSize: '11px', color: '#999' }}>
+                  {city}{' '}
+                  {location.address?.state ? `- ${location.address.state}` : ''}
                 </div>
               </li>
             );

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useToast } from '../contexts/ToastContext';
 import { changePassword } from '../services/authService';
+import { MIN_PASSWORD_LENGTH, isStrongPassword } from '../utils/validation';
 
 export function useChangePassword() {
   const { showToast } = useToast();
@@ -19,6 +20,14 @@ export function useChangePassword() {
 
     if (newPassword !== confirmPassword) {
       showToast('A confirmação de senha não confere com a nova senha', 'error');
+      return;
+    }
+
+    if (!isStrongPassword(newPassword)) {
+      showToast(
+        `Senha deve ter ao menos ${MIN_PASSWORD_LENGTH} caracteres, incluindo letras e números.`,
+        'error'
+      );
       return;
     }
 

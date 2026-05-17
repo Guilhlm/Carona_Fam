@@ -1,217 +1,333 @@
+const RideRepository = require('../repositories/RideRepository');
+const config = require('../config/env');
+const HttpError = require('../utils/HttpError');
+const GeoUtils = require('../utils/GeoUtils');
+
 class RideService {
-  constructor({ rideRepository }) {
+  static VALID_STATUS_TRANSITIONS = {
+    WAITING_DRIVER: ['DRIVER_ACCEPTED', 'CANCELLED'],
+    DRIVER_ACCEPTED: ['DRIVER_ARRIVING', 'CANCELLED'],
+    DRIVER_ARRIVING: ['IN_PROGRESS', 'CANCELLED'],
+    IN_PROGRESS: ['COMPLETED', 'CANCELLED'],
+    COMPLETED: [],
+    CANCELLED: [],
+  };
+
+  static DRIVER_ONLY_TRANSITIONS = new Set(['DRIVER_ARRIVING']);
+  static EITHER_PARTY_TRANSITIONS = new Set(['IN_PROGRESS', 'COMPLETED']);
+
+  constructor({ rideRepository, coordinateService, realtimeService }) {
     this.rideRepository = rideRepository;
+    this.coordinateService = coordinateService;
+    this.realtimeService = realtimeService;
   }
 
-  getOrderBy(order) {
-    if (order === 'passengers_desc') {
-      return { passengers: { _count: 'desc' } };
-    }
-    if (order === 'driver_asc') {
-      return { driver: { name: 'asc' } };
-    }
-    if (order === 'passenger_asc') {
-      return null;
-    }
-    if (order === 'date_desc') {
-      return { departureAt: 'desc' };
-    }
-    return { departureAt: 'asc' };
+  buildPriceEstimate(distanceKm, timeMin) {
+    const { base, perKm, perMin } = config.ridePricing;
+    const safeDistanceKm = Number(distanceKm) || 0;
+    const safeTimeMin = Number(timeMin) || 0;
+    const rawPrice = base + perKm * safeDistanceKm + perMin * safeTimeMin;
+    return Math.round(rawPrice * 100) / 100;
   }
 
-  buildRideFilter({ status, origin, destination, search }) {
-    const where = {};
-
-    if (status) {
-      where.status = status;
-    }
-
-    if (search && search.trim()) {
-      const term = search.trim();
-      where.OR = [
-        { origin: { contains: term, mode: 'insensitive' } },
-        { destination: { contains: term, mode: 'insensitive' } },
-        { driver: { name: { contains: term, mode: 'insensitive' } } },
-        { passengers: { some: { passenger: { name: { contains: term, mode: 'insensitive' } } } } },
-      ];
-      return where;
-    }
-
-    if (origin) {
-      where.origin = { contains: origin, mode: 'insensitive' };
-    }
-    if (destination) {
-      where.destination = { contains: destination, mode: 'insensitive' };
-    }
-
-    return where;
-  }
-
-  getRideInclude() {
-    return {
-      driver: { select: { id: true, name: true, email: true } },
-      vehicle: { select: { brand: true, model: true, plate: true } },
-      passengers: {
-        include: {
-          passenger: { select: { id: true, name: true } },
-        },
-      },
-    };
-  }
-
-  async listRides(filters = {}) {
-    const pageNumber = Math.max(1, parseInt(filters.page, 10) || 1);
-    const limitNumber = Math.min(100, Math.max(1, parseInt(filters.limit, 10) || 20));
-    const { status, origin, destination, search, order } = filters;
-    const skip = (pageNumber - 1) * limitNumber;
-
-    const where = this.buildRideFilter({ status, origin, destination, search });
-    const include = this.getRideInclude();
-
-    if (order === 'passenger_asc') {
-      const [allRides, total] = await this.rideRepository.listRides(where, include, {
-        orderBy: { departureAt: 'asc' },
-      });
-
-      const sorted = [...allRides].sort((a, b) => {
-        const nameA = a.passengers?.[0]?.passenger?.name ?? '';
-        const nameB = b.passengers?.[0]?.passenger?.name ?? '';
-        return String(nameA).localeCompare(String(nameB));
-      });
-      const rides = sorted.slice(skip, skip + limitNumber);
-
-      return {
-        data: rides,
-        pagination: {
-          page: pageNumber,
-          limit: limitNumber,
-          total,
-          totalPages: Math.ceil(total / limitNumber),
-        },
-      };
-    }
-
-    const [rides, total] = await this.rideRepository.listRides(where, include, {
-      skip,
-      take: limitNumber,
-      orderBy: this.getOrderBy(order),
-    });
-
-    return {
-      data: rides,
-      pagination: {
-        page: pageNumber,
-        limit: limitNumber,
-        total,
-        totalPages: Math.ceil(total / limitNumber),
-      },
-    };
-  }
-
-  getRideHistory(userId, role) {
-    return this.rideRepository.findRideHistoryByUser(userId, role);
-  }
-
-  async createRide(userId, data) {
-    const driver = await this.rideRepository.findDriverById(userId);
-    if (!driver) {
-      const err = new Error('Apenas motoristas podem criar corridas');
-      err.statusCode = 403;
-      throw err;
-    }
-
-    const vehicle = await this.rideRepository.findVehicleByDriver(data.vehicleId, userId);
-    if (!vehicle) {
-      const err = new Error('Veículo não encontrado ou não pertence ao motorista');
-      err.statusCode = 404;
-      throw err;
-    }
-
-    return this.rideRepository.createRide({
-      driverId: userId,
-      vehicleId: data.vehicleId,
-      origin: data.origin,
-      destination: data.destination,
-      distanceKm: data.distanceKm ? parseFloat(data.distanceKm) : null,
-      suggestedValue: data.suggestedValue ? parseFloat(data.suggestedValue) : null,
-      departureAt: new Date(data.departureAt),
-      arrivalAt: new Date(data.arrivalAt),
-      availableSeats: parseInt(data.availableSeats, 10) || 1,
+  parseAndValidateStops(rawStops) {
+    if (!Array.isArray(rawStops)) return [];
+    return rawStops.map((rawStop, stopIndex) => {
+      const stopLat = GeoUtils.toNumberOrNull(rawStop?.lat);
+      const stopLng = GeoUtils.toNumberOrNull(rawStop?.lng);
+      const stopAddress = String(rawStop?.address || '').trim();
+      if (!stopAddress || !GeoUtils.isValidLatitude(stopLat) || !GeoUtils.isValidLongitude(stopLng)) {
+        throw HttpError.badRequest(`Parada ${stopIndex + 1} inválida`);
+      }
+      return { address: stopAddress, lat: stopLat, lng: stopLng };
     });
   }
 
-  async requestRide(rideId, passengerId) {
-    const ride = await this.rideRepository.findRideWithPassengers(rideId);
-
-    if (!ride) {
-      const err = new Error('Corrida não encontrada');
-      err.statusCode = 404;
-      throw err;
-    }
-    if (ride.status !== 'ACTIVE') {
-      const err = new Error('Corrida não está ativa');
-      err.statusCode = 400;
-      throw err;
-    }
-
-    const confirmedCount = ride.passengers.filter((passenger) => passenger.status === 'CONFIRMED').length;
-    if (confirmedCount >= ride.availableSeats) {
-      const err = new Error('Não há vagas disponíveis');
-      err.statusCode = 400;
-      throw err;
+  async estimateRouteMetrics(coordinatePoints) {
+    let distanceKm = null;
+    let estimatedTimeMin = null;
+    try {
+      if (this.coordinateService && coordinatePoints.length >= 2 && this.coordinateService.apiKey) {
+        const routeResponse = await this.coordinateService.calculateCarRoute(coordinatePoints);
+        const routeSummary = routeResponse?.features?.[0]?.properties?.summary;
+        if (routeSummary) {
+          distanceKm = Number((routeSummary.distance / 1000).toFixed(2));
+          estimatedTimeMin = Math.ceil(routeSummary.duration / 60);
+        }
+      }
+    } catch (routingError) {
+      distanceKm = null;
+      estimatedTimeMin = null;
     }
 
-    const existing = ride.passengers.find((passenger) => passenger.passengerId === passengerId);
-    if (existing) {
-      const err = new Error('Solicitação já realizada');
-      err.statusCode = 409;
-      throw err;
+    if (distanceKm == null || estimatedTimeMin == null) {
+      const fallbackMetrics = GeoUtils.fallbackDistanceTime(coordinatePoints);
+      distanceKm = fallbackMetrics.distanceKm;
+      estimatedTimeMin = fallbackMetrics.timeMin;
     }
 
-    return this.rideRepository.createRideRequest(rideId, passengerId);
+    return { distanceKm, estimatedTimeMin };
   }
 
-  async updateRideStatus(rideId, userId, status) {
-    const ride = await this.rideRepository.findRideById(rideId);
-    if (!ride) {
-      const err = new Error('Corrida não encontrada');
-      err.statusCode = 404;
-      throw err;
+  async requestNewRide(requesterId, requestPayload) {
+    const originAddress = (requestPayload.origin || '').trim();
+    const destinationAddress = (requestPayload.destination || '').trim();
+    if (!originAddress || !destinationAddress) {
+      throw HttpError.badRequest('Origem e destino são obrigatórios');
     }
 
-    if (ride.driverId !== userId) {
-      const err = new Error('Apenas o motorista pode alterar o status');
-      err.statusCode = 403;
-      throw err;
+    const originLat = GeoUtils.toNumberOrNull(requestPayload.originLat);
+    const originLng = GeoUtils.toNumberOrNull(requestPayload.originLng);
+    const destinationLat = GeoUtils.toNumberOrNull(requestPayload.destinationLat);
+    const destinationLng = GeoUtils.toNumberOrNull(requestPayload.destinationLng);
+
+    if (!GeoUtils.isValidLatitude(originLat) || !GeoUtils.isValidLongitude(originLng)) {
+      throw HttpError.badRequest('Coordenadas de origem inválidas');
+    }
+    if (!GeoUtils.isValidLatitude(destinationLat) || !GeoUtils.isValidLongitude(destinationLng)) {
+      throw HttpError.badRequest('Coordenadas de destino inválidas');
     }
 
-    const validStatuses = ['ACTIVE', 'FINISHED', 'CANCELLED'];
-    if (!validStatuses.includes(status)) {
-      const err = new Error('Status inválido');
-      err.statusCode = 400;
-      throw err;
+    const parsedStops = this.parseAndValidateStops(requestPayload.stops);
+
+    const existingActiveRide = await this.rideRepository.findActiveRideForUser(requesterId);
+    if (existingActiveRide) {
+      throw HttpError.conflict('Você já possui uma corrida em andamento', {
+        rideId: existingActiveRide.id,
+      });
     }
 
-    return this.rideRepository.updateRideStatus(rideId, status);
+    const coordinatePoints = [
+      [originLng, originLat],
+      ...parsedStops.map((parsedStop) => [parsedStop.lng, parsedStop.lat]),
+      [destinationLng, destinationLat],
+    ];
+
+    const { distanceKm, estimatedTimeMin } = await this.estimateRouteMetrics(coordinatePoints);
+    const estimatedValue = this.buildPriceEstimate(distanceKm, estimatedTimeMin);
+
+    const createdRide = await this.rideRepository.createRideRequest({
+      requesterId,
+      origin: originAddress,
+      destination: destinationAddress,
+      originLat,
+      originLng,
+      destinationLat,
+      destinationLng,
+      distanceKm,
+      estimatedTimeMin,
+      estimatedValue,
+      stops: parsedStops,
+    });
+
+    this.publishRide(createdRide);
+    this.publishOpenRidesEvent({ type: 'created', ride: createdRide });
+
+    return createdRide;
   }
 
-  async cancelRideByAdmin(rideId) {
-    const ride = await this.rideRepository.findRideById(rideId);
-
-    if (!ride) {
-      const err = new Error('Corrida não encontrada');
-      err.statusCode = 404;
-      throw err;
-    }
-
-    if (ride.status === 'CANCELLED') {
-      const err = new Error('Corrida já está cancelada');
-      err.statusCode = 400;
-      throw err;
-    }
-
-    return this.rideRepository.updateRideStatus(rideId, 'CANCELLED');
+  listOpenRides() {
+    return this.rideRepository.findOpenRides();
   }
+
+  async getRideDetail(rideId, currentUser) {
+    const rideRecord = await this.rideRepository.findRideDetail(rideId);
+    if (!rideRecord) throw HttpError.notFound('Corrida não encontrada');
+
+    const isAdminUser = currentUser?.role === 'ADMIN' || currentUser?.isAdmin === true;
+    const isRidePassenger =
+      currentUser &&
+      (rideRecord.passengers || []).some(
+        (passengerLink) =>
+          passengerLink.passengerId === currentUser.id && passengerLink.status !== 'CANCELLED'
+      );
+    const scheduledCaronaLink =
+      currentUser && !isRidePassenger
+        ? await this.rideRepository.findScheduledCaronaOnRide(rideId, currentUser.id)
+        : null;
+    const isParticipant =
+      currentUser &&
+      (rideRecord.requesterId === currentUser.id ||
+        rideRecord.driverId === currentUser.id ||
+        isRidePassenger ||
+        scheduledCaronaLink);
+    const isDriverEligible =
+      currentUser?.role === 'DRIVER' && rideRecord.status === 'WAITING_DRIVER' && !rideRecord.driverId;
+
+    if (!isAdminUser && !isParticipant && !isDriverEligible) {
+      throw HttpError.forbidden('Acesso negado a esta corrida');
+    }
+
+    let participationRole = null;
+    if (currentUser) {
+      if (rideRecord.driverId === currentUser.id) participationRole = 'DRIVER';
+      else if (rideRecord.requesterId === currentUser.id) participationRole = 'REQUESTER';
+      else if (isRidePassenger || scheduledCaronaLink) participationRole = 'CARONA';
+    }
+
+    return participationRole ? { ...rideRecord, participationRole } : rideRecord;
+  }
+
+  async resolveDriverVehicle(driverUser, requestedVehicleId) {
+    if (!requestedVehicleId) {
+      return this.rideRepository.findFirstActiveVehicle(driverUser.id);
+    }
+
+    const requestedVehicle = await this.rideRepository.findVehicleByDriver(
+      requestedVehicleId,
+      driverUser.id
+    );
+
+    if (!requestedVehicle) {
+      throw HttpError.notFound('Veículo não encontrado ou não pertence ao motorista');
+    }
+    if (requestedVehicle.isDisabled) {
+      throw HttpError.badRequest('Veículo está desabilitado');
+    }
+    return requestedVehicle;
+  }
+
+  async acceptRide(rideId, driverUser, { vehicleId } = {}) {
+    if (driverUser.role !== 'DRIVER') {
+      throw HttpError.forbidden('Apenas motoristas podem aceitar corridas');
+    }
+
+    const rideRecord = await this.rideRepository.findRideById(rideId);
+    if (!rideRecord) throw HttpError.notFound('Corrida não encontrada');
+    if (rideRecord.status !== 'WAITING_DRIVER' || rideRecord.driverId) {
+      throw HttpError.conflict('Corrida não está mais disponível');
+    }
+
+    const activeRideForDriver = await this.rideRepository.findActiveRideForUser(driverUser.id);
+    if (activeRideForDriver && activeRideForDriver.id !== rideId) {
+      throw HttpError.conflict('Você já possui uma corrida em andamento', {
+        rideId: activeRideForDriver.id,
+      });
+    }
+
+    const driverVehicle = await this.resolveDriverVehicle(driverUser, vehicleId);
+
+    const updatedRide = await this.rideRepository.assignDriverToOpenRide(
+      rideId,
+      driverUser.id,
+      driverVehicle ? driverVehicle.id : null
+    );
+
+    if (!updatedRide) {
+      throw HttpError.conflict('Corrida já foi aceita por outro motorista');
+    }
+
+    this.publishRide(updatedRide);
+    this.publishOpenRidesEvent({ type: 'accepted', rideId: updatedRide.id });
+
+    return updatedRide;
+  }
+
+  async transitionStatus(rideId, currentUser, nextStatus) {
+    const rideRecord = await this.rideRepository.findRideById(rideId);
+    if (!rideRecord) throw HttpError.notFound('Corrida não encontrada');
+
+    const allowedTransitions = RideService.VALID_STATUS_TRANSITIONS[rideRecord.status] || [];
+    if (!allowedTransitions.includes(nextStatus)) {
+      throw HttpError.badRequest(`Transição inválida: ${rideRecord.status} -> ${nextStatus}`);
+    }
+
+    const isDriver = rideRecord.driverId === currentUser.id;
+    const isRequester = rideRecord.requesterId === currentUser.id;
+    const isAdminUser = currentUser.role === 'ADMIN' || currentUser.isAdmin === true;
+
+    if (nextStatus === 'CANCELLED') {
+      throw HttpError.badRequest('Use o endpoint de cancelamento com motivo');
+    }
+
+    if (RideService.DRIVER_ONLY_TRANSITIONS.has(nextStatus)) {
+      if (!isDriver && !isAdminUser) {
+        throw HttpError.forbidden('Apenas o motorista pode realizar esta ação');
+      }
+    } else if (RideService.EITHER_PARTY_TRANSITIONS.has(nextStatus)) {
+      if (!isDriver && !isRequester && !isAdminUser) {
+        throw HttpError.forbidden('Apenas o motorista ou passageiro podem realizar esta ação');
+      }
+    } else {
+      throw HttpError.badRequest('Transição não suportada por este endpoint');
+    }
+
+    const transitionMetadata = {};
+    if (nextStatus === 'DRIVER_ARRIVING') transitionMetadata.arrivingAt = new Date();
+    if (nextStatus === 'IN_PROGRESS') transitionMetadata.startedAt = new Date();
+    if (nextStatus === 'COMPLETED') {
+      transitionMetadata.completedAt = new Date();
+      if (rideRecord.estimatedValue != null && rideRecord.actualValue == null) {
+        transitionMetadata.actualValue = rideRecord.estimatedValue;
+      }
+    }
+
+    const updatedRide = await this.rideRepository.updateRideStatus(rideId, nextStatus, transitionMetadata);
+    this.publishRide(updatedRide);
+    return updatedRide;
+  }
+
+  resolveCancellationActor({ isRequester, isDriver, isAdminUser }) {
+    if (isRequester) return 'PASSENGER';
+    if (isDriver) return 'DRIVER';
+    if (isAdminUser) return 'ADMIN';
+    return 'SYSTEM';
+  }
+
+  async cancelRide(rideId, currentUser, { reason }) {
+    const cancellationReason = String(reason || '').trim();
+    if (!cancellationReason) throw HttpError.badRequest('Motivo do cancelamento é obrigatório');
+
+    const rideRecord = await this.rideRepository.findRideById(rideId);
+    if (!rideRecord) throw HttpError.notFound('Corrida não encontrada');
+    if (!RideRepository.ACTIVE_STATUSES.includes(rideRecord.status)) {
+      throw HttpError.badRequest('Corrida não pode mais ser cancelada');
+    }
+
+    const isDriver = rideRecord.driverId === currentUser.id;
+    const isRequester = rideRecord.requesterId === currentUser.id;
+    const isAdminUser = currentUser.role === 'ADMIN' || currentUser.isAdmin === true;
+
+    if (!isDriver && !isRequester && !isAdminUser) {
+      throw HttpError.forbidden('Você não pode cancelar esta corrida');
+    }
+
+    const cancellationActor = this.resolveCancellationActor({ isRequester, isDriver, isAdminUser });
+
+    const updatedRide = await this.rideRepository.cancelRide(rideId, {
+      reason: cancellationReason,
+      actor: cancellationActor,
+    });
+    this.publishRide(updatedRide);
+    if (rideRecord.status === 'WAITING_DRIVER') {
+      this.publishOpenRidesEvent({ type: 'removed', rideId });
+    }
+    return updatedRide;
+  }
+
+  async getActiveRideForUser(userId) {
+    const rideRecord = await this.rideRepository.findActiveRideForUser(userId);
+    if (!rideRecord) return null;
+    return this.getRideDetail(rideRecord.id, { id: userId });
+  }
+
+  async linkCaronaPassenger(rideId, passengerId) {
+    const rideRecord = await this.rideRepository.findRideById(rideId);
+    if (!rideRecord) throw HttpError.notFound('Corrida não encontrada');
+    if (passengerId === rideRecord.requesterId) return;
+    await this.rideRepository.createRidePassengerConfirmed(rideId, passengerId);
+  }
+
+  publishRide(rideRecord) {
+    if (!this.realtimeService || !rideRecord) return;
+    this.realtimeService.publish(`ride:${rideRecord.id}`, { ride: rideRecord });
+  }
+
+  publishOpenRidesEvent(eventPayload) {
+    if (!this.realtimeService) return;
+    this.realtimeService.publish('driver:open-rides', eventPayload);
+  }
+
 }
 
 module.exports = RideService;

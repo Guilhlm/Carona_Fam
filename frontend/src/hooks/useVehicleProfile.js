@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { getMyVehicles, saveMyVehicle, createNewVehicle } from '../services/vehicleService';
+import { maxFileSizeValidator } from '../utils/validation';
 
 const emptyVehicleForm = {
   id: '',
@@ -23,6 +24,8 @@ const VEHICLE_FIELDS = [
   'capacityTotal',
   'photoUrl',
 ];
+const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const MAX_IMAGE_UPLOAD_BYTES = 2 * 1024 * 1024;
 
 const normalizeVehicleToForm = (vehicle) => ({
   id: vehicle?.id || '',
@@ -150,6 +153,16 @@ export function useVehicleProfile() {
     async (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
+
+      if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
+        showToast('Formato inválido. Use imagem JPG, PNG ou WEBP.', 'error');
+        return;
+      }
+
+      if (!maxFileSizeValidator(file, MAX_IMAGE_UPLOAD_BYTES)) {
+        showToast('A imagem deve ter no máximo 2MB.', 'error');
+        return;
+      }
 
       const reader = new FileReader();
 

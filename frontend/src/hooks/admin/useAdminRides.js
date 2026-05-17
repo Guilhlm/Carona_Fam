@@ -6,17 +6,19 @@ import { useExpandableList } from './useExpandableList';
 import * as adminService from '../../services/adminService';
 
 const INITIAL_FILTERS = { search: '', filterStatus: '', filterOrder: 'date_desc' };
-const RIDES_PER_PAGE = 10;
+import { ADMIN_ITEMS_PER_PAGE } from '../../pages/Admin/components/adminConstants';
 
-function normalizeRidesResponse(res) {
-  const list = Array.isArray(res?.data) ? res.data : (res?.data?.data ?? []);
-  const pag = res?.pagination ?? res?.data?.pagination ?? {};
-  return { data: list, pagination: pag };
+const RIDES_PER_PAGE = ADMIN_ITEMS_PER_PAGE;
+
+function normalizeRidesResponse(response) {
+  const rides = Array.isArray(response?.data) ? response.data : (response?.data?.data ?? []);
+  const pagination = response?.pagination ?? response?.data?.pagination ?? {};
+  return { data: rides, pagination };
 }
 
 const fetchRidesNormalized = async (params) => {
-  const res = await adminService.listRides(params);
-  return normalizeRidesResponse(res);
+  const response = await adminService.listRides(params);
+  return normalizeRidesResponse(response);
 };
 
 export function useAdminRides() {
@@ -49,7 +51,6 @@ export function useAdminRides() {
   const effectiveData = overrideResult?.data ?? data ?? [];
   const effectivePagination = overrideResult?.pagination ?? pagination ?? {};
 
-  // Ordenação feita no backend; frontend usa os dados já ordenados
   const rides = effectiveData;
 
   const loading = fetchLoading || loadingNext;
@@ -76,7 +77,7 @@ export function useAdminRides() {
     setResult: setOverrideResult,
     fetchNextPage,
     setLoading: setLoadingNext,
-    getItemId: (r) => r.id,
+    getItemId: (rideRecord) => rideRecord.id,
   });
 
   const handleCancelRide = useCallback(
@@ -86,8 +87,8 @@ export function useAdminRides() {
         setOverrideResult(null);
         refetch(false);
         show('Corrida cancelada com sucesso.', 'success');
-      } catch (err) {
-        show(err.response?.data?.error || 'Erro ao cancelar corrida.', 'error');
+      } catch (cancelError) {
+        show(cancelError.response?.data?.error || 'Erro ao cancelar corrida.', 'error');
       }
     },
     [refetch, show]

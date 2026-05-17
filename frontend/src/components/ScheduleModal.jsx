@@ -1,8 +1,12 @@
 import { useMemo } from 'react';
-import { FiUsers, FiX } from 'react-icons/fi';
+import { FiCrosshair, FiMapPin, FiSearch, FiUsers, FiX } from 'react-icons/fi';
+import AddressAutocompleteField from './ride/AddressAutocompleteField';
 import CustomSelect from './ui/CustomSelect';
 
 const SCHEDULE_PASSENGER_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8];
+
+const fieldInputClass =
+  'w-full rounded-lg border border-border-muted bg-black/20 pl-10 pr-10 py-2.5 text-sm text-text-main placeholder:text-text-main/45 outline-none focus:border-brand';
 
 export default function ScheduleModal({
   open,
@@ -10,7 +14,9 @@ export default function ScheduleModal({
   onConfirm,
   schedule,
   setSchedule,
-  destinationLabel,
+  onOutOfRadius,
+  onUseMyLocation,
+  locatingOrigin = false,
 }) {
   const schedulePassengerOptions = useMemo(
     () =>
@@ -35,7 +41,7 @@ export default function ScheduleModal({
       />
       <form
         onSubmit={onConfirm}
-        className="relative w-full max-w-sm rounded-2xl border border-border-muted bg-surface-input/95 backdrop-blur-xl p-5 space-y-4"
+        className="relative w-full max-w-sm max-h-[90vh] overflow-y-auto rounded-2xl border border-border-muted bg-surface-input/95 backdrop-blur-xl p-5 space-y-4"
       >
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold">Agendar Corrida</h2>
@@ -48,9 +54,65 @@ export default function ScheduleModal({
           </button>
         </div>
 
-        <div className="rounded-lg border border-border-muted bg-black/20 px-3 py-2 text-sm">
-          <p className="text-text-main/60 text-xs mb-1">Destino</p>
-          <p className="text-text-main">{destinationLabel}</p>
+        <div className="space-y-2">
+          <span className="text-xs text-text-main/70">Local de partida</span>
+          <AddressAutocompleteField
+            value={schedule.originText}
+            onChange={(v) =>
+              setSchedule((s) => ({
+                ...s,
+                originText: v,
+                originCoords: null,
+              }))
+            }
+            onPick={({ label, lon, lat }) =>
+              setSchedule((s) => ({
+                ...s,
+                originText: label,
+                originCoords: [lon, lat],
+              }))
+            }
+            onOutOfRadius={onOutOfRadius}
+            placeholder="De onde você sai?"
+            icon={<FiMapPin className="h-4 w-4" />}
+            inputClassName={fieldInputClass}
+            minChars={3}
+          />
+          <button
+            type="button"
+            onClick={onUseMyLocation}
+            disabled={locatingOrigin}
+            className="inline-flex items-center gap-2 text-xs text-brand hover:text-brand/80 disabled:opacity-60"
+          >
+            <FiCrosshair className={`h-3.5 w-3.5 ${locatingOrigin ? 'animate-pulse' : ''}`} />
+            {locatingOrigin ? 'Localizando...' : 'Usar minha localização atual'}
+          </button>
+        </div>
+
+        <div className="space-y-2">
+          <span className="text-xs text-text-main/70">Destino final</span>
+          <AddressAutocompleteField
+            value={schedule.destinationText}
+            onChange={(v) =>
+              setSchedule((s) => ({
+                ...s,
+                destinationText: v,
+                destinationCoords: null,
+              }))
+            }
+            onPick={({ label, lon, lat }) =>
+              setSchedule((s) => ({
+                ...s,
+                destinationText: label,
+                destinationCoords: [lon, lat],
+              }))
+            }
+            onOutOfRadius={onOutOfRadius}
+            placeholder="Para onde vamos?"
+            icon={<FiSearch className="h-4 w-4" />}
+            inputClassName={fieldInputClass}
+            minChars={3}
+          />
         </div>
 
         <label className="block">
@@ -59,16 +121,6 @@ export default function ScheduleModal({
             type="datetime-local"
             value={schedule.departureAt}
             onChange={(e) => setSchedule((s) => ({ ...s, departureAt: e.target.value }))}
-            className="mt-1 w-full rounded-lg border border-border-muted bg-black/20 px-3 py-2 text-sm outline-none focus:border-brand"
-          />
-        </label>
-
-        <label className="block">
-          <span className="text-xs text-text-main/70">Horário de retorno (opcional)</span>
-          <input
-            type="datetime-local"
-            value={schedule.returnAt}
-            onChange={(e) => setSchedule((s) => ({ ...s, returnAt: e.target.value }))}
             className="mt-1 w-full rounded-lg border border-border-muted bg-black/20 px-3 py-2 text-sm outline-none focus:border-brand"
           />
         </label>
