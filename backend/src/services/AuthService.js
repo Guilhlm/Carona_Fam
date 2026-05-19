@@ -1,7 +1,8 @@
 const InputNormalizer = require('../utils/InputNormalizer');
 const HttpError = require('../utils/HttpError');
+const { ROLE_USER } = require('../utils/roles');
 
-const DEFAULT_USER_ROLE = 'USER';
+const DEFAULT_USER_ROLE = ROLE_USER;
 const REGISTERED_USER_SELECT = {
   id: true,
   email: true,

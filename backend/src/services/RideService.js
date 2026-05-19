@@ -2,6 +2,7 @@ const RideRepository = require('../repositories/RideRepository');
 const config = require('../config/env');
 const HttpError = require('../utils/HttpError');
 const GeoUtils = require('../utils/GeoUtils');
+const { isAdminUser } = require('../utils/roles');
 
 class RideService {
   static VALID_STATUS_TRANSITIONS = {
@@ -134,7 +135,7 @@ class RideService {
     const rideRecord = await this.rideRepository.findRideDetail(rideId);
     if (!rideRecord) throw HttpError.notFound('Corrida não encontrada');
 
-    const isAdminUser = currentUser?.role === 'ADMIN' || currentUser?.isAdmin === true;
+    const isAdmin = isAdminUser(currentUser);
     const isRidePassenger =
       currentUser &&
       (rideRecord.passengers || []).some(
@@ -154,7 +155,7 @@ class RideService {
     const isDriverEligible =
       currentUser?.role === 'DRIVER' && rideRecord.status === 'WAITING_DRIVER' && !rideRecord.driverId;
 
-    if (!isAdminUser && !isParticipant && !isDriverEligible) {
+    if (!isAdmin && !isParticipant && !isDriverEligible) {
       throw HttpError.forbidden('Acesso negado a esta corrida');
     }
 
@@ -234,18 +235,18 @@ class RideService {
 
     const isDriver = rideRecord.driverId === currentUser.id;
     const isRequester = rideRecord.requesterId === currentUser.id;
-    const isAdminUser = currentUser.role === 'ADMIN' || currentUser.isAdmin === true;
+    const isAdmin = isAdminUser(currentUser);
 
     if (nextStatus === 'CANCELLED') {
       throw HttpError.badRequest('Use o endpoint de cancelamento com motivo');
     }
 
     if (RideService.DRIVER_ONLY_TRANSITIONS.has(nextStatus)) {
-      if (!isDriver && !isAdminUser) {
+      if (!isDriver && !isAdmin) {
         throw HttpError.forbidden('Apenas o motorista pode realizar esta ação');
       }
     } else if (RideService.EITHER_PARTY_TRANSITIONS.has(nextStatus)) {
-      if (!isDriver && !isRequester && !isAdminUser) {
+      if (!isDriver && !isRequester && !isAdmin) {
         throw HttpError.forbidden('Apenas o motorista ou passageiro podem realizar esta ação');
       }
     } else {
@@ -286,13 +287,13 @@ class RideService {
 
     const isDriver = rideRecord.driverId === currentUser.id;
     const isRequester = rideRecord.requesterId === currentUser.id;
-    const isAdminUser = currentUser.role === 'ADMIN' || currentUser.isAdmin === true;
+    const isAdmin = isAdminUser(currentUser);
 
-    if (!isDriver && !isRequester && !isAdminUser) {
+    if (!isDriver && !isRequester && !isAdmin) {
       throw HttpError.forbidden('Você não pode cancelar esta corrida');
     }
 
-    const cancellationActor = this.resolveCancellationActor({ isRequester, isDriver, isAdminUser });
+    const cancellationActor = this.resolveCancellationActor({ isRequester, isDriver, isAdminUser: isAdmin });
 
     const updatedRide = await this.rideRepository.cancelRide(rideId, {
       reason: cancellationReason,

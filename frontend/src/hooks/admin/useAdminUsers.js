@@ -3,9 +3,10 @@ import { useNotification } from '../useNotification';
 import { useAdminFetch } from './useAdminFetch';
 import { useAdminFilters } from './useAdminFilters';
 import * as adminService from '../../services/adminService';
+import { ROLE_ADMIN, ROLE_USER } from '../../utils/roles';
+import { ADMIN_ITEMS_PER_PAGE } from '../../pages/Admin/components/adminConstants';
 
 const INITIAL_FILTERS = { search: '', filterBlocked: '', filterRole: '' };
-import { ADMIN_ITEMS_PER_PAGE } from '../../pages/Admin/components/adminConstants';
 
 const DEFAULT_LIMIT = ADMIN_ITEMS_PER_PAGE;
 
@@ -55,11 +56,11 @@ export function useAdminUsers() {
       try {
         const payload = {};
         if (makeAdmin) {
-          payload.role = 'ADMIN';
+          payload.role = ROLE_ADMIN;
           payload.isAdmin = true;
         } else {
-          if (user.role === 'ADMIN') {
-            payload.role = 'USER';
+          if (user.role === ROLE_ADMIN) {
+            payload.role = ROLE_USER;
           }
           if (user.isAdmin) {
             payload.isAdmin = false;

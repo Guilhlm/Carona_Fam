@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import * as authService from '../services/authService';
+import { isAdminUser } from '../utils/roles';
 
 const AuthContext = createContext(null);
 
@@ -48,7 +49,7 @@ export function AuthProvider({ children }) {
     localStorage.setItem('user', JSON.stringify(userData));
   };
 
-  const isAdmin = user?.role === 'ADMIN' || user?.isAdmin === true;
+  const isAdmin = isAdminUser(user);
 
   const value = {
     user,

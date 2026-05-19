@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as rideService from '../services/rideService';
 import { useAuth } from '../contexts/AuthContext';
+import { ROLE_DRIVER, isAdminUser } from '../utils/roles';
 
 export function useOpenRides({ enabled = true } = {}) {
   const { user, isAuthenticated } = useAuth();
-  const isDriverOrAdmin = user?.role === 'DRIVER' || user?.role === 'ADMIN' || user?.isAdmin === true;
+  const isDriverOrAdmin = user?.role === ROLE_DRIVER || isAdminUser(user);
   const [rides, setRides] = useState([]);
   const [loading, setLoading] = useState(false);
   const eventSourceRef = useRef(null);

@@ -10,9 +10,9 @@ class VehicleRepository {
     });
   }
 
-  findVehicleByIdAndDriver(id, driverId) {
+  findVehicleByIdAndDriver(vehicleId, driverId) {
     return this.prisma.vehicle.findFirst({
-      where: { id, driverId },
+      where: { id: vehicleId, driverId },
     });
   }
 

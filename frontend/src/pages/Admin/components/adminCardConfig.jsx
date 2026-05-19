@@ -1,6 +1,7 @@
 import React from 'react';
 import Badge from '../../../components/ui/Badge';
 import { formatDate } from '../../../utils/formatDate';
+import { isAdminUser } from '../../../utils/roles';
 
 const rideStatusLabels = {
   WAITING_DRIVER: 'Aguardando motorista',
@@ -315,7 +316,7 @@ export function getCardConfig(variant) {
             <span className="text-[10px] md:text-xs text-text-main/85">
               · {vehicleCount} {vehicleCount === 1 ? 'veículo' : 'veículos'}
             </span>
-            {(item.role === 'ADMIN' || item.isAdmin) && (
+            {isAdminUser(item) && (
               <span className="text-[10px] md:text-xs text-brand uppercase tracking-wide">
                 {item.role}
                 {item.isAdmin ? ' · ADMIN' : ''}
@@ -405,7 +406,7 @@ export function getCardConfig(variant) {
       getExpandContent: () => null,
       actionType: 'user-actions',
       hideActionsWhen: (_item, props) => !!props.isCurrentUser,
-      getIsAdmin: (item) => item.role === 'ADMIN' || !!item.isAdmin,
+      getIsAdmin: (item) => isAdminUser(item),
       getIsBlocked: (item) => !!item.isBlocked,
     },
   };

@@ -2,6 +2,7 @@ const rideService = require('../services/ride');
 const legacyRideService = require('../services/legacyRide');
 const realtimeService = require('../services/realtime');
 const { success, created, error: respondError } = require('../utils/response');
+const { isAdminUser } = require('../utils/roles');
 
 class RideController {
   constructor({ rideService: newRideService, legacyRideService: legacyService }) {
@@ -56,7 +57,8 @@ class RideController {
 
   listOpenRides = async (req, res, next) => {
     try {
-      if (req.user.role !== 'DRIVER' && req.user.role !== 'ADMIN' && !req.user.isAdmin) {
+      const isDriver = req.user.role === 'DRIVER';
+      if (!isDriver && !isAdminUser(req.user)) {
         return respondError(res, 'Apenas motoristas podem listar corridas abertas', 403);
       }
       const openRides = await this.rideService.listOpenRides();
@@ -141,11 +143,8 @@ class RideController {
 
   streamOpenRides = async (req, res, next) => {
     try {
-      if (
-        req.user.role !== 'DRIVER' &&
-        req.user.role !== 'ADMIN' &&
-        !req.user.isAdmin
-      ) {
+      const isDriver = req.user.role === 'DRIVER';
+      if (!isDriver && !isAdminUser(req.user)) {
         return respondError(res, 'Apenas motoristas podem ouvir corridas abertas', 403);
       }
       realtimeService.subscribe('driver:open-rides', res, req);

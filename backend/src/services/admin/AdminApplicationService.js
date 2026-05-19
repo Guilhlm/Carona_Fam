@@ -1,6 +1,7 @@
 const InputNormalizer = require('../../utils/InputNormalizer');
 const HttpError = require('../../utils/HttpError');
 const GeoUtils = require('../../utils/GeoUtils');
+const { isAdminUser } = require('../../utils/roles');
 
 class AdminApplicationService {
   constructor({
@@ -180,7 +181,7 @@ class AdminApplicationService {
       throw HttpError.notFound('Usuário não encontrado');
     }
 
-    const wasAdminUser = targetUser.role === 'ADMIN' || targetUser.isAdmin;
+    const wasAdminUser = isAdminUser(targetUser);
     const willBeAdmin =
       typeof updatePayload.role !== 'undefined' || typeof updatePayload.isAdmin !== 'undefined'
         ? (updatePayload.role || targetUser.role) === 'ADMIN' || !!(updatePayload.isAdmin ?? targetUser.isAdmin)
@@ -273,7 +274,7 @@ class AdminApplicationService {
       throw HttpError.notFound('Usuário não encontrado');
     }
 
-    if (targetUser.role === 'ADMIN' || targetUser.isAdmin) {
+    if (isAdminUser(targetUser)) {
       throw HttpError.forbidden('Não é possível excluir administradores');
     }
 

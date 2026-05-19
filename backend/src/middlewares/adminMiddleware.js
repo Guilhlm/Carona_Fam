@@ -1,11 +1,12 @@
 const { error } = require('../utils/response');
+const { isAdminUser } = require('../utils/roles');
 
 function adminMiddleware(req, res, next) {
   if (!req.user) {
     return error(res, 'Autenticação necessária', 401);
   }
 
-  if (req.user.role !== 'ADMIN' && !req.user.isAdmin) {
+  if (!isAdminUser(req.user)) {
     return error(res, 'Acesso negado. Apenas administradores.', 403);
   }
 

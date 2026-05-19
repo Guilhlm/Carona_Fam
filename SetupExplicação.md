@@ -216,6 +216,24 @@ flowchart LR
   - Botões (`Button`), inputs (`Input`, `Select`), `Table`, `Badge` de status de corridas, `Card` para corridas.
   - Componentes focados em acessibilidade e responsividade (mobile-first), adequados para padrão de mercado.
 
+
+## Funcionalidades adicionais encontradas no código
+
+- **SSE / Realtime:** endpoints SSE para assinaturas em tempo real (ex.: rides abertos, updates por ride). Veja [backend/src/middlewares/sseAuthMiddleware.js](backend/src/middlewares/sseAuthMiddleware.js), [backend/src/services/RealtimeService.js](backend/src/services/RealtimeService.js) e [backend/src/controllers/RideController.js](backend/src/controllers/RideController.js).
+- **Serviço legado (`legacyRide`):** compatibilidade com fluxos antigos de corridas; usado pelo `RideController`. Veja [backend/src/services/legacyRide/index.js](backend/src/services/legacyRide/index.js).
+- **Corridas agendadas:** API para criar/juntar/cancelar scheduled rides. Veja [backend/src/routes/scheduledRides.routes.js](backend/src/routes/scheduledRides.routes.js) e [backend/src/controllers/ScheduledRideController.js](backend/src/controllers/ScheduledRideController.js).
+- **Cálculo de rotas / GeoUtils:** utilitários para rota/distância/tempo e integração opcional com OpenRouteService. Veja [backend/src/controllers/CoordinateController.js](backend/src/controllers/CoordinateController.js) e [backend/src/utils/GeoUtils.js](backend/src/utils/GeoUtils.js).
+- **Normalização / Validação:** `InputNormalizer` e `AuthPayloadValidator` (email, RA, senha). Veja [backend/src/utils/InputNormalizer.js](backend/src/utils/InputNormalizer.js) e [backend/src/middlewares/AuthPayloadValidator.js](backend/src/middlewares/AuthPayloadValidator.js).
+- **HttpError:** helper para lançar erros HTTP padronizados; usado com o `errorHandler`. Veja [backend/src/utils/HttpError.js](backend/src/utils/HttpError.js).
+- **Repositórios admin:** consultas e agregações especializadas em `src/repositories/admin` (ex.: `ReviewRepository`). Pasta: [backend/src/repositories/admin](backend/src/repositories/admin).
+- **Doc admin (POO):** alternativa de implementação da área admin no frontend: [frontend/docs/admin-poo-fase2.md](frontend/docs/admin-poo-fase2.md).
+
+Observações:
+- `backend/prisma/seed.js` está vazio — o seed não cria admin automaticamente.
+- Alinhar portas/urls: `backend/.env` usa `PORT=4001`; o README menciona `4000`. O `vite.config.js` proxy aponta para `http://localhost:4001`. Recomenda-se padronizar a porta nas docs.
+- Se usar OpenRouteService, configure `ORS_API_KEY` no `.env` e documente limites de uso.
+
+
 ## Docker & DevOps
 
 - **Dockerfile backend (`[backend/Dockerfile](backend/Dockerfile)`)**

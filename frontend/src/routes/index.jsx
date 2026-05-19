@@ -1,5 +1,5 @@
-import { Navigate } from "react-router-dom";
-import { useAuth } from "../contexts/AuthContext";
+import { Navigate } from 'react-router-dom';
+import ProtectedAuthUser from '../components/ProtectedAuthUser';
 import MainLayout from "../layouts/MainLayout";
 import AdminLayout from "../layouts/AdminLayout";
 import HomePage from "../pages/HomePage";
@@ -19,21 +19,6 @@ import ScheduledRidesPage from "../pages/ScheduledRidesPage";
 
 import MapTestPage from "../pages/Test/MapTest";
 
-function RequireAuth({ children }) {
-  const { isAuthenticated, loading } = useAuth();
-  if (loading) return <div className="p-8 text-center">Carregando...</div>;
-  if (!isAuthenticated) return <Navigate to="/" replace />;
-  return children;
-}
-
-function RequireAdmin({ children }) {
-  const { isAuthenticated, isAdmin, loading } = useAuth();
-  if (loading) return <div className="p-8 text-center">Carregando...</div>;
-  if (!isAuthenticated) return <Navigate to="/" replace />;
-  if (!isAdmin) return <Navigate to="/home" replace />;
-  return children;
-}
-
 export default [
   {
     path: "/",
@@ -48,97 +33,57 @@ export default [
     element: <AuthForgotPasswordPage />,
   },
   {
-    path: "/home/rides/:id/navigate",
-    element: (
-      <RequireAuth>
-        <RideNavigationPage />
-      </RequireAuth>
-    ),
-  },
-  {
     path: "/home",
-    element: <MainLayout />,
+    element: (
+      <ProtectedAuthUser>
+        <MainLayout />
+      </ProtectedAuthUser>
+    ),
     children: [
       { index: true, element: <HomePage /> },
       {
+        path: "rides/:id/navigate",
+        element: <RideNavigationPage />,
+      },
+      {
         path: "profile",
-        element: (
-          <RequireAuth>
-            <ProfilePage />
-          </RequireAuth>
-        ),
+        element: <ProfilePage />,
       },
       {
         path: "rides/request",
-        element: (
-          <RequireAuth>
-            <RideRequestPage />
-          </RequireAuth>
-        ),
+        element: <RideRequestPage />,
       },
       {
         path: "rides/available",
-        element: (
-          <RequireAuth>
-            <AvailableRidesPage />
-          </RequireAuth>
-        ),
+        element: <AvailableRidesPage />,
       },
       {
         path: "rides/scheduled",
-        element: (
-          <RequireAuth>
-            <ScheduledRidesPage />
-          </RequireAuth>
-        ),
+        element: <ScheduledRidesPage />,
       },
       {
         path: "rides/history",
-        element: (
-          <RequireAuth>
-            <RideHistoryPage />
-          </RequireAuth>
-        ),
+        element: <RideHistoryPage />,
       },
       {
         path: "rides/:id/waiting",
-        element: (
-          <RequireAuth>
-            <RideWaitingPage />
-          </RequireAuth>
-        ),
+        element: <RideWaitingPage />,
       },
       {
         path: "rides/:id/preview",
-        element: (
-          <RequireAuth>
-            <RideOpenDetailPage />
-          </RequireAuth>
-        ),
+        element: <RideOpenDetailPage />,
       },
       {
         path: "rides/:id/active",
-        element: (
-          <RequireAuth>
-            <RideInProgressPage />
-          </RequireAuth>
-        ),
+        element: <RideInProgressPage />,
       },
       {
         path: "rides/:id/summary",
-        element: (
-          <RequireAuth>
-            <RideSummaryPage />
-          </RequireAuth>
-        ),
+        element: <RideSummaryPage />,
       },
       {
         path: "ride/in-progress",
-        element: (
-          <RequireAuth>
-            <RideInProgressPage />
-          </RequireAuth>
-        ),
+        element: <RideInProgressPage />,
       },
     ],
   },
@@ -149,9 +94,9 @@ export default [
   {
     path: "/admin",
     element: (
-      <RequireAdmin>
+      <ProtectedAuthUser adminOnly>
         <AdminLayout />
-      </RequireAdmin>
+      </ProtectedAuthUser>
     ),
   },
   { path: "*", element: <Navigate to="/" replace /> },
